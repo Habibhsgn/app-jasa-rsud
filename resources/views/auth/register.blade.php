@@ -1,56 +1,133 @@
 <x-guest-layout>
-    <div class="text-center mb-4">
-        <h3 class="fw-bold">Register</h3>
-        <p class="text-muted">Buat akun baru</p>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .login-card {
+            border-radius: 20px;
+            backdrop-filter: blur(15px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            color: white;
+        }
+
+        .form-control {
+            border-radius: 10px;
+        }
+
+        .input-group-text {
+            border-radius: 10px 0 0 10px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+        }
+
+        .form-control {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+        }
+
+        .form-control::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+
+        .btn-modern {
+            border-radius: 12px;
+            padding: 10px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            border: none;
+            transition: 0.3s ease;
+        }
+
+        .btn-modern:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        .link {
+            color: #fff;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .link:hover {
+            text-decoration: underline;
+        }
+    </style>
+
+    <div class="d-flex justify-content-center align-items-center" style="min-height: 40vh;">
+        <div class="card login-card p-4" style="width: 500px;">
+
+            <div class="text-center mb-4">
+                <h2 class="fw-bold">Create Account 🚀</h2>
+                <p class="text-light">Buat akun baru untuk melanjutkan</p>
+            </div>
+
+            <form method="POST" action="{{ route('register') }}">
+                @csrf
+
+                <div class="mb-3">
+                    <label class="form-label">Nama</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <input type="text" name="name" class="form-control" placeholder="Masukkan nama" value="{{ old('name') }}" required>
+                    </div>
+                    @error('name')
+                        <small class="text-warning">{{ $message }}</small>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                        <input type="email" name="email" class="form-control" placeholder="Masukkan email" value="{{ old('email') }}" required>
+                    </div>
+                    @error('email')
+                        <small class="text-warning">{{ $message }}</small>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Penempatan Ruangan</label>
+                    <select name="ruangan_id" class="form-select" required>
+                        <option value="">-- Pilih Ruangan --</option>
+                        @forelse($ruanganTersedia as $ruangan)
+                            <option value="{{ $ruangan->id }}">{{ $ruangan->nama_ruangan }}</option>
+                        @empty
+                            <option disabled>Semua ruangan sudah memiliki Kepala Ruangan</option>
+                        @endforelse
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                        <input type="password" name="password" class="form-control" placeholder="Masukkan password" required>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Konfirmasi Password</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
+                        <input type="password" name="password_confirmation" class="form-control" placeholder="Ulangi password" required>
+                    </div>
+                </div>
+
+                <div class="d-grid mb-3">
+                    <button type="submit" class="btn btn-modern">Register</button>
+                </div>
+
+                <div class="text-center">
+                    <a class="link" href="{{ route('login') }}">Sudah punya akun? Login</a>
+                </div>
+            </form>
+        </div>
     </div>
-
-    <form method="POST" action="{{ route('register') }}">
-        @csrf
-
-        <div class="mb-3">
-            <label>Nama</label>
-            <input type="text" name="name" class="form-control" required>
-            @error('name')
-                <small class="text-danger">{{ $message }}</small>
-            @enderror
-        </div>
-
-        <div class="mb-3">
-            <label>Email</label>
-            <input type="email" name="email" class="form-control" required>
-            @error('email')
-                <small class="text-danger">{{ $message }}</small>
-            @enderror
-        </div>
-
-        <div class="mb-3">
-            <label>Penempatan Ruangan</label>
-            <select name="ruangan_id" class="form-control" required>
-                <option value="">-- Silakan Pilih Ruangan --</option>
-                @forelse($ruanganTersedia as $ruangan)
-                    <option value="{{ $ruangan->id }}">{{ $ruangan->nama_ruangan }}</option>
-                @empty
-                    <option disabled>Semua ruangan sudah memiliki Kepala Ruangan</option>
-                @endforelse
-            </select>
-        </div>
-
-        <div class="mb-3">
-            <label>Password</label>
-            <input type="password" name="password" class="form-control" required>
-        </div>
-
-        <div class="mb-3">
-            <label>Konfirmasi Password</label>
-            <input type="password" name="password_confirmation" class="form-control" required>
-        </div>
-
-        <div class="d-grid">
-            <button type="submit" class="btn btn-success btn-modern">Register</button>
-        </div>
-
-        <div class="text-center mt-3">
-            <a href="{{ route('login') }}">Sudah punya akun? Login</a>
-        </div>
-    </form>
 </x-guest-layout>

@@ -13,20 +13,29 @@ use Illuminate\Support\Facades\Auth;
 class jasaRuanganControllers extends Controller
 {
 
-    public function index()
+    public function index(Request $request)
     {
-        // 1. Ambil query dasar dengan Eager Loading agar cepat
+        // 1. Ambil query dasar
         $query = JasaRuangan::with(['periode', 'ruangan', 'pegawai'])
-            ->whereIn('status', ['proses_karu', 'verifikasi', 'selesai']);
+            ->whereIn('status', ['proses_karu', 'verifikasi', 'selesai', 'revisi']);
 
-        
+        // 2. Filter berdasarkan Role Karu
         if (Auth::user()->role === 'karu') {
             $query->where('ruangan_id', Auth::user()->ruangan_id);
         }
 
+        // 3. LOGIKA DEFAULT: Bulan & Tahun Real-time
+        // Jika user tidak memilih bulan/tahun di form, maka gunakan bulan & tahun SEKARANG
+        $bulan = $request->input('bulan', date('m'));
+        $tahun = $request->input('tahun', date('Y'));
+
+        // 4. Terapkan Filter ke Query
+        $query->whereMonth('created_at', $bulan)
+            ->whereYear('created_at', $tahun);
+
         $data = $query->get();
 
-        return view('pages.isiJasa', compact('data'));
+        return view('pages.isiJasa', compact('data', 'bulan', 'tahun'));
         return view('dashboard.dashboard', compact('data'));
     }
 
@@ -38,10 +47,10 @@ class jasaRuanganControllers extends Controller
         }
 
         foreach ($request->pegawai_id as $i => $pegawaiId) {
-            
+
             // Bersihkan titik pemisah ribuan dari input nominal
             $nominalBersih = str_replace('.', '', $request->nominal[$i]);
-            
+
             // Ambil data persen dan keterangan
             $persen = $request->persen[$i] ?? 0;
             $keterangan = $request->keterangan[$i] ?? null;
