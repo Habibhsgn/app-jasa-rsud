@@ -2,7 +2,6 @@
 
 namespace App\Exports;
 
-use App\Models\JasaRuangan;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 class JasaPegawaiExport implements WithMultipleSheets
@@ -18,8 +17,11 @@ class JasaPegawaiExport implements WithMultipleSheets
     {
         $sheets = [];
 
+        // 1. Panggil class KHUSUS GABUNGAN (kirim semua data)
+        $sheets[] = new SemuaRuanganSheet($this->data);
+
+        // 2. Loop class KHUSUS PER RUANGAN (kirim satu per satu)
         foreach ($this->data as $item) {
-            // Setiap JasaRuangan (per ruangan per periode) akan jadi 1 sheet
             $sheets[] = new PerRuanganSheet($item);
         }
 
