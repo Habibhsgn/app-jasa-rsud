@@ -30,7 +30,7 @@ Route::get('/', function () {
 | AUTH ROUTES
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'verified', 'active'])->group(function () {
+Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
