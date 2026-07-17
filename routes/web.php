@@ -14,6 +14,8 @@ use App\Http\Controllers\admin\userManagementControllers;
 use GuzzleHttp\Middleware;
 use App\Http\Controllers\pages\IndexScoringControllers;
 use App\Http\Controllers\pages\ManagementIndexScoringControllers;
+use App\Http\Controllers\pages\InacbgController;
+use App\Http\Controllers\admin\SettingController;
 
 /*
 |--------------------------------------------------------------------------
@@ -218,6 +220,25 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
 
     Route::post('/ruangan/{id}/resiko-emergency', [pegawaiControllers::class, 'updateRuanganResikoEmergency'])
         ->name('ruangan.updateResikoEmergency');
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | INA-CBG & SETTING
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('inacbg')->name('inacbg.')->group(function () {
+        Route::get('/', [InacbgController::class, 'index'])->name('index');
+        Route::post('/import', [InacbgController::class, 'import'])->name('import');
+        Route::get('/{inacbgClaim}', [InacbgController::class, 'show'])->name('show');
+        Route::put('/{inacbgClaim}/status', [InacbgController::class, 'updateStatus'])->name('update-status');
+    });
+
+    Route::middleware(['role:admin'])->prefix('setting')->name('setting.')->group(function () {
+        Route::get('/', [SettingController::class, 'index'])->name('index');
+        Route::post('/', [SettingController::class, 'update'])->name('update');
+    });
 });
 
 

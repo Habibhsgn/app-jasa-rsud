@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'python' => [
+
+        'binary' => env(
+            'PYTHON_BIN',
+            'python'
+        ),
+
+    ],
+
 ];

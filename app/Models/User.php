@@ -17,18 +17,6 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-        'role',
-        'ruangan_id'
-    ];
-
-    public function ruangan()
-    {
-        return $this->belongsTo(\App\Models\Ruangan::class, 'ruangan_id');
-    }
     /**
      * Get the attributes that should be cast.
      *

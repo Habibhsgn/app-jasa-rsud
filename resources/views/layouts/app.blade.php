@@ -8,6 +8,12 @@
 
     <link href="{{ asset('assets/css/app.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+    {{-- Bootstrap CSS (CDN) - pelengkap komponen yg tidak ter-compile di app.css --}}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+
+    @stack('styles')
 </head>
 
 <body>
@@ -77,6 +83,13 @@
             }, 3000);
         }
     </script>
+
+    {{-- Bootstrap JS Bundle (CDN) - termasuk Popper, dibutuhkan utk modal/dropdown/tooltip --}}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
+
+    @stack('scripts')
 </body>
 @if (session('success'))
     <script>

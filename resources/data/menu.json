@@ -25,6 +25,11 @@
         "icon": "dollar-sign",
         "route": "index.scoring.index"
     },
+    {
+        "name": "INA-CBG",
+        "icon": "file-text",
+        "route": "inacbg.index"
+    },
 
     {
         "header": "Manajemen"
@@ -60,5 +65,10 @@
         "name": "Manajemen User Login",
         "icon": "user-check",
         "route": "users.index"
+    },
+    {
+        "name": "Pengaturan Jasa",
+        "icon": "settings",
+        "route": "setting.index"
     }
 ]

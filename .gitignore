@@ -22,3 +22,6 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+python/feedback/venv/
+python/feedback/__pycache__
