@@ -5,35 +5,74 @@
         </a>
 
         @php
-            // 1. Ambil data secara elegan dari file resources/data/menus.json
             $jsonString = file_get_contents(resource_path('data/menu.json'));
             $menus = json_decode($jsonString, true);
 
-            // 2. Daftar rute yang DIIZINKAN untuk dilihat oleh KARU
-            $aksesKaru = ['dashboard', 'karu.jasa', 'pegawai.index'];
+            /**
+             * Whitelist akses menu per role.
+             * Role yang TIDAK terdaftar di sini (misal 'admin') dianggap punya akses penuh.
+             */
+            $roleAccess = [
+                'karu' => ['dashboard', 'karu.jasa', 'pegawai.index', 'index.scoring.index'],
+                'koordinator_karu' => ['dashboard', 'karu.jasa', 'pegawai.index', 'index.scoring.index'],
+                'manajemen' => ['dashboard', 'management.index.scoring.index', 'laporan.jasa.index'],
+            ];
+
+            $userRole = auth()->check() ? auth()->user()->role : null;
+            $allowedRoutes = $roleAccess[$userRole] ?? null; // null = akses penuh (misal admin)
+
+            /**
+             * Kelompokkan menu per header, lalu tentukan visibility tiap item
+             * berdasarkan whitelist role. Header hanya dirender jika section-nya
+             * punya minimal 1 item yang visible.
+             */
+            $groups = [];
+            $currentHeaderIndex = -1;
+
+            foreach ($menus as $menu) {
+                if (isset($menu['header'])) {
+                    $groups[] = [
+                        'header' => $menu['header'],
+                        'items' => [],
+                    ];
+                    $currentHeaderIndex = count($groups) - 1;
+                    continue;
+                }
+
+                $visible = is_null($allowedRoutes) || in_array($menu['route'], $allowedRoutes);
+
+                if (!$visible) {
+                    continue;
+                }
+
+                if ($currentHeaderIndex === -1) {
+                    // Jaga-jaga kalau ada item sebelum header pertama
+                    $groups[] = ['header' => null, 'items' => []];
+                    $currentHeaderIndex = count($groups) - 1;
+                }
+
+                $groups[$currentHeaderIndex]['items'][] = $menu;
+            }
         @endphp
 
         <ul class="sidebar-nav">
-            @foreach ($menus as $menu)
-                
-                @if (isset($menu['header']))
-                    <li class="sidebar-header">
-                        {{ $menu['header'] }}
-                    </li>
-                @else
-                    {{-- Filter akses KARU --}}
-                    @if (auth()->check() && auth()->user()->role === 'karu' && !in_array($menu['route'], $aksesKaru))
-                        @continue
-                    @endif
+            @foreach ($groups as $group)
+                @continue(empty($group['items']))
 
-                    <li class="sidebar-item {{ request()->routeIs($menu['route']) ? 'active' : '' }}">
-                        <a class="sidebar-link" href="{{ route($menu['route']) }}">
-                            <i class="align-middle" data-feather="{{ $menu['icon'] }}"></i> 
-                            <span class="align-middle">{{ $menu['name'] }}</span>
-                        </a>
+                @if ($group['header'])
+                    <li class="sidebar-header">
+                        {{ $group['header'] }}
                     </li>
                 @endif
 
+                @foreach ($group['items'] as $menu)
+                    <li class="sidebar-item {{ request()->routeIs($menu['route']) ? 'active' : '' }}">
+                        <a class="sidebar-link" href="{{ route($menu['route']) }}">
+                            <i class="align-middle" data-feather="{{ $menu['icon'] }}"></i>
+                            <span class="align-middle">{{ $menu['name'] }}</span>
+                        </a>
+                    </li>
+                @endforeach
             @endforeach
         </ul>
     </div>

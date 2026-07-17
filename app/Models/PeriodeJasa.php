@@ -6,11 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 
 class PeriodeJasa extends Model
 {
-    protected $table = 'periode_jasa'; // Sesuaikan jika nama tabel Anda berbeda (misal: periode_jasas)
-    
-    protected $guarded = []; // Mengizinkan semua kolom diisi
+    protected $table = 'periode_jasa'; 
+    protected $fillable = [
+        'periode',
+        'total_jasa',
+        'status',
+        'keterangan'
+    ];
 
-    // Tambahkan relasi ini agar foreach saat menghapus tidak bernilai NULL
+    const REGULER = 'JASA REGULER';
+    const PENDING = 'JASA PENDING';
+    protected $guarded = []; 
+
+  
     public function pembagianRuangan()
     {
         return $this->hasMany(JasaRuangan::class, 'periode_id');
@@ -19,13 +27,17 @@ class PeriodeJasa extends Model
     protected static function booted()
     {
         static::deleting(function ($periode) {
-            // Loop semua anak (JasaRuangan) dan hapus satu per satu
-            // Memanggil $ruangan->delete() di sini akan memicu event deleting di JasaRuangan di atas
             if ($periode->pembagianRuangan) {
                 foreach ($periode->pembagianRuangan as $ruangan) {
                     $ruangan->delete();
                 }
             }
+        });
+
+        static::updated(function ($periode) {
+            $periode->jasaRuangan()->update([
+                'keterangan' => $periode->keterangan
+            ]);
         });
     }
 }

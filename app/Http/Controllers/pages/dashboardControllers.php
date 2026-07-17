@@ -4,7 +4,6 @@ namespace App\Http\Controllers\pages;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-
 use App\Models\JasaRuangan;
 use App\Models\Pegawai;
 use App\Models\Ruangan;
@@ -14,34 +13,56 @@ class dashboardControllers extends Controller
 {
     public function index()
     {
-        // Query dasar jasa
+        $user = Auth::user();
+
         $queryJasa = JasaRuangan::with(['periode', 'ruangan'])
-            ->whereIn('status', ['proses_karu', 'verifikasi', 'selesai']);
+            ->whereIn('status', [
+                'proses_karu',
+                'verifikasi',
+                'selesai'
+            ]);
 
         $pegawaiQuery = Pegawai::query();
         $ruanganCount = Ruangan::count();
 
-        // Filter berdasarkan role
-        if (Auth::user()->role === 'karu') {
-            $ruanganId = Auth::user()->ruangan_id;
+        // =========================
+        // ROLE FILTER FIX
+        // =========================
 
-            $queryJasa->where('ruangan_id', $ruanganId);
-            $pegawaiQuery->where('ruangan_id', $ruanganId);
+        if ($user->role === 'koordinator_karu') {
+
+            $queryJasa->where('ruangan_id', $user->ruangan_id);
+            $pegawaiQuery->where('ruangan_id', $user->ruangan_id);
 
             $labelPegawai = "Pegawai di Ruangan Anda";
-        } else {
+        }
+
+        elseif ($user->role === 'karu') {
+
+            // 🔥 KOORDINATOR = LIHAT SEMUA RUANGAN (TIDAK DIFILTER)
+            $labelPegawai = "Semua Pegawai (Koordinator)";
+        }
+
+        else {
             $labelPegawai = "Total Seluruh Pegawai";
         }
 
         $totalPegawai = $pegawaiQuery->count();
 
-        // Statistik berdasarkan status
+        // =========================
+        // STATISTIC STATUS
+        // =========================
         $totalProses = (clone $queryJasa)->where('status', 'proses_karu')->count();
         $totalVerifikasi = (clone $queryJasa)->where('status', 'verifikasi')->count();
         $totalSelesai = (clone $queryJasa)->where('status', 'selesai')->count();
 
-        // Data terbaru untuk tabel
-        $dataJasa = $queryJasa->latest()->get();
+        // =========================
+        // GROUP BY PERIODE
+        // =========================
+        $dataJasa = $queryJasa->latest()->get()
+            ->groupBy(function ($item) {
+                return $item->periode->periode ?? 'unknown';
+            });
 
         return view('dashboard.dashboard', [
             'data' => $dataJasa,
@@ -50,7 +71,8 @@ class dashboardControllers extends Controller
             'totalRuangan' => $ruanganCount,
             'totalProses' => $totalProses,
             'totalVerifikasi' => $totalVerifikasi,
-            'totalSelesai' => $totalSelesai
+            'totalSelesai' => $totalSelesai,
+            'koordinator' => $user->role === 'karu'
         ]);
     }
 }

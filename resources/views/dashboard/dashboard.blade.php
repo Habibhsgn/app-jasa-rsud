@@ -57,75 +57,94 @@
 
         </div>
 
-        {{-- CALENDAR + TABLE --}}
+        {{-- GROUPED TABLE PER PERIODE --}}
         <div class="row">
+            <div class="col-12">
 
-            {{-- Calendar --}}
-            <div class="col-12 col-md-6 col-xxl-3 d-flex">
-                <div class="card flex-fill">
-                    <div class="card-header">
-                        <h5 class="card-title mb-0">Calendar</h5>
-                    </div>
-                    <div class="card-body d-flex">
-                        <div class="align-self-center w-100">
-                            <div id="datetimepicker-dashboard"></div>
+                @forelse($data as $periode => $items)
+
+                    <div class="card mb-3 shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <strong>Periode {{ $periode }}</strong>
+
+                            <button class="btn btn-sm btn-primary" data-bs-toggle="collapse"
+                                data-bs-target="#p{{ md5($periode) }}">
+                                Detail
+                            </button>
+                        </div>
+
+                        <div id="p{{ md5($periode) }}" class="collapse">
+                            <div class="table-responsive">
+
+                                <table class="table table-hover my-0">
+                                    <thead>
+                                        <tr>
+                                            <th>Ruangan</th>
+
+                                            @if ($koordinator)
+                                                <th>Nominal</th>
+                                            @endif
+
+                                            <th>Status</th>
+                                            @if (!$koordinator)
+                                                <th class="text-center">Persen</th>
+                                            @endif
+                                            <th>Catatan</th>
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        @foreach ($items as $item)
+                                            <tr>
+                                                <td>{{ $item->ruangan->nama_ruangan ?? 'N/A' }}</td>
+
+                                                {{-- NOMINAL HIDDEN UNTUK KOORDINATOR --}}
+                                                @if ($koordinator)
+                                                    <td>
+                                                        Rp {{ number_format($item->nominal, 0, ',', '.') }}
+                                                    </td>
+                                                @endif
+
+                                                <td>
+                                                    @if ($item->status == 'selesai')
+                                                        <span class="badge bg-success">Selesai</span>
+                                                    @elseif($item->status == 'proses_karu')
+                                                        <span class="badge bg-warning">Proses Karu</span>
+                                                    @elseif($item->status == 'verifikasi')
+                                                        <span class="badge bg-info">Verifikasi</span>
+                                                    @endif
+                                                </td>
+
+                                                @if (!$koordinator)
+                                                    <td class="text-center">
+                                                        {{ (float) $item->persen }}%
+                                                    </td>
+                                                @endif
+                                                <td>
+                                                    <small class="text-muted">
+                                                        {{ $item->catatan ?? '-' }}
+                                                    </small>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+
+                                </table>
+
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {{-- Latest Projects --}}
-            <div class="col-12 col-lg-8 d-flex">
-                <div style="max-height: 400px; overflow-y: auto;">
-                    <table class="table table-hover my-0">
-                        <thead style="position: sticky; top: 0; background: white;">
-                            <tr>
-                                <th>Periode</th>
-                                <th class="d-none d-xl-table-cell">Ruangan</th>
-                                <th class="d-none d-xl-table-cell">Nominal</th>
-                                <th>Status</th>
-                                <th class="d-none d-md-table-cell text-center">Persen</th>
-                                <th class="d-none d-md-table-cell">Catatan</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($data as $item)
-                                <tr>
-                                    <td>{{ $item->periode->periode ?? 'N/A' }}</td>
-                                    <td class="d-none d-xl-table-cell">
-                                        {{ $item->ruangan->nama_ruangan ?? 'N/A' }}
-                                    </td>
-                                    <td class="d-none d-xl-table-cell">
-                                        Rp {{ number_format($item->nominal, 0, ',', '.') }}
-                                    </td>
-                                    <td>
-                                        @if ($item->status == 'selesai')
-                                            <span class="badge bg-success">Selesai</span>
-                                        @elseif($item->status == 'proses_karu')
-                                            <span class="badge bg-warning">Proses Karu</span>
-                                        @elseif($item->status == 'verifikasi')
-                                            <span class="badge bg-info">Verifikasi</span>
-                                        @endif
-                                    </td>
-                                    <td class="d-none d-md-table-cell text-center">
-                                        {{ (float) $item->persen }}%
-                                    </td>
-                                    <td class="d-none d-md-table-cell">
-                                        <small class="text-muted">{{ $item->catatan ?? '-' }}</small>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="6" class="text-center text-muted">
-                                        Data pembagian jasa tidak ditemukan.
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                @empty
+                    <div class="card">
+                        <div class="card-body text-center text-muted">
+                            Tidak ada data jasa ditemukan.
+                        </div>
+                    </div>
+                @endforelse
 
+            </div>
         </div>
+
     </div>
 @endsection

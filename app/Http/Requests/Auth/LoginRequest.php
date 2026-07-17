@@ -6,6 +6,7 @@ use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -40,8 +41,10 @@ class LoginRequest extends FormRequest
      */
     public function authenticate(): void
     {
+        // $a = Hash::make('test1234');
+        // dd($a);
+        // die;
         $this->ensureIsNotRateLimited();
-
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 

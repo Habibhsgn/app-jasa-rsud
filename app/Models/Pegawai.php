@@ -12,7 +12,9 @@ class Pegawai extends Model
         'nama',
         'id_petugas',
         'ruangan_id',
-        'jabatan'
+        'jabatan',
+        'resiko',
+        'emergency'
     ];
 
     public function ruangan()

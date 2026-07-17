@@ -4,10 +4,40 @@
 
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h3 mb-0"><strong>Laporan Hasil Pembagian Jasa Pegawai</strong></h1>
-        <div>
-            <a href="{{ route('laporan.jasa.export') }}" class="btn btn-success">📗 Download Excel</a>
-            <button onclick="window.print()" class="btn btn-secondary">🖨️ Cetak Laporan</button>
+        <h1 class="h3 mb-0">
+            <strong>Laporan Hasil Pembagian Jasa Pegawai</strong>
+        </h1>
+
+        <div class="d-flex gap-2">
+
+            <form method="GET" action="{{ route('laporan.jasa.index') }}" class="d-flex gap-2">
+
+                <select name="periode_id" class="form-select">
+                    <option value="">Semua Periode</option>
+
+                    @foreach ($periode as $p)
+                        <option value="{{ $p->id }}" {{ request('periode_id') == $p->id ? 'selected' : '' }}>
+                            {{ $p->periode }}
+                        </option>
+                    @endforeach
+                </select>
+
+                <button type="submit" class="btn btn-primary">
+                    Filter
+                </button>
+            </form>
+
+            <a href="{{ route('laporan.jasa.export', [
+                'periode_id' => request('periode_id'),
+            ]) }}"
+                class="btn btn-success">
+                📗 Download Excel
+            </a>
+
+            <button onclick="window.print()" class="btn btn-secondary">
+                🖨️ Cetak Laporan
+            </button>
+
         </div>
     </div>
 

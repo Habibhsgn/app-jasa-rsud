@@ -7,6 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 class Ruangan extends Model
 {
     protected $table = 'ruangan';
+    protected $fillable = [
+        'nama_ruangan',
+        'karu_id',
+        'persen_default',
+        'resiko',
+        'emergency',
+        'is_active'
+
+    ];
 
     public function karu()
     {

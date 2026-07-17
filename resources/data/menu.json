@@ -1,46 +1,64 @@
 [
-  {
-    "header": "Menu"
-  },
-  {
-    "name": "Dashboard",
-    "icon": "sliders",
-    "route": "dashboard"
-  },
-  {
-    "name": "Input Jasa",
-    "icon": "dollar-sign",
-    "route": "jasa.index"
-  },
-  {
-    "header": "Laporan"
-  },
-  {
-    "name": "Isi Jasa Ruangan",
-    "icon": "dollar-sign",
-    "route": "karu.jasa"
-  },
-  {
-    "name": "Laporan Jasa",
-    "icon": "file-text",
-    "route": "laporan.jasa.index"
-  },
-  {
-    "header": "Setting"
-  },
-  {
-    "name": "Master Ruangan",
-    "icon": "folder",
-    "route": "master.ruangan.index"
-  },
-  {
-    "name": "Manajemen Data Pegawai",
-    "icon": "user",
-    "route": "pegawai.index"
-  },
-  {
-    "name": "Manajemen User Login",
-    "icon": "user-check",
-    "route": "users.index"
-  }
+    {
+        "header": "Menu"
+    },
+    {
+        "name": "Dashboard",
+        "icon": "sliders",
+        "route": "dashboard"
+    },
+    {
+        "name": "Input Jasa",
+        "icon": "dollar-sign",
+        "route": "jasa.index"
+    },
+    {
+        "header": "Isi Jasa"
+    },
+    {
+        "name": "Jasa Ruangan 30%",
+        "icon": "dollar-sign",
+        "route": "karu.jasa"
+    },
+    {
+        "name": "Index Scoring",
+        "icon": "dollar-sign",
+        "route": "index.scoring.index"
+    },
+
+    {
+        "header": "Manajemen"
+    },
+    {
+        "name": "Verifikasi Jasa",
+        "icon": "dollar-sign",
+        "route": "management.index.scoring.index"
+    },
+
+    {
+        "header": "Laporan"
+    },
+    {
+        "name": "Laporan Jasa",
+        "icon": "file-text",
+        "route": "laporan.jasa.index"
+    },
+    {
+        "header": "Setting"
+    },
+    {
+        "name": "Master Ruangan",
+        "icon": "folder",
+        "route": "master.ruangan.index"
+    },
+    {
+        "name": "Manajemen Data Pegawai",
+        "icon": "user",
+        "route": "pegawai.index"
+    },
+    {
+        "name": "Manajemen User Login",
+        "icon": "user-check",
+        "route": "users.index"
+    }
 ]

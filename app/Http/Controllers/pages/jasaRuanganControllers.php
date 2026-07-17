@@ -12,48 +12,70 @@ use Illuminate\Support\Facades\Auth;
 
 class jasaRuanganControllers extends Controller
 {
-
     public function index(Request $request)
     {
-        // 1. Ambil query dasar
-        $query = JasaRuangan::with(['periode', 'ruangan', 'pegawai'])
-            ->whereIn('status', ['proses_karu', 'verifikasi', 'selesai', 'revisi']);
+        $user = Auth::user();
 
-        // 2. Filter berdasarkan Role Karu
-        if (Auth::user()->role === 'karu') {
-            $query->where('ruangan_id', Auth::user()->ruangan_id);
+        $query = JasaRuangan::with(['periode', 'ruangan', 'pegawai'])
+            ->whereIn('status', [
+                'proses_karu',
+                'verifikasi',
+                'selesai',
+                'revisi'
+            ]);
+
+        // =========================
+        // ROLE FILTERING
+        // =========================
+        switch ($user->role) {
+
+            case 'karu':
+                $query->where('ruangan_id', $user->ruangan_id);
+                break;
+
+            case 'koordinator_karu':
+                $query->where('ruangan_id', $user->ruangan_id);
+                break;
+
+            case 'admin':
+            default:
+                break;
         }
 
-        // 3. LOGIKA DEFAULT: Bulan & Tahun Real-time
-        // Jika user tidak memilih bulan/tahun di form, maka gunakan bulan & tahun SEKARANG
+        // =========================
+        // FILTER PERIODE
+        // =========================
         $bulan = $request->input('bulan', date('m'));
         $tahun = $request->input('tahun', date('Y'));
 
-        // 4. Terapkan Filter ke Query
-        $query->whereMonth('created_at', $bulan)
-            ->whereYear('created_at', $tahun);
+        $periodeString = $tahun . '-' . str_pad($bulan, 2, '0', STR_PAD_LEFT);
 
-        $data = $query->get();
+        $periodeIds = PeriodeJasa::where('periode', $periodeString)
+            ->pluck('id');
 
-        return view('pages.isiJasa', compact('data', 'bulan', 'tahun'));
-        return view('dashboard.dashboard', compact('data'));
+        $query->whereIn('periode_id', $periodeIds);
+
+        $data = $query->latest()->get();
+
+        return view('pages.isiJasa', compact(
+            'data',
+            'bulan',
+            'tahun'
+        ));
     }
 
     public function store(Request $request)
     {
-        // Pastikan request array tidak kosong
         if (!$request->has('pegawai_id')) {
             return back()->with('error', 'Tidak ada pegawai untuk disimpan');
         }
 
         foreach ($request->pegawai_id as $i => $pegawaiId) {
 
-            // Bersihkan titik pemisah ribuan dari input nominal
-            $nominalBersih = str_replace('.', '', $request->nominal[$i]);
-
-            // Ambil data persen dan keterangan
+            $nominalBersih = str_replace('.', '', $request->nominal[$i] ?? 0);
             $persen = $request->persen[$i] ?? 0;
-            $keterangan = $request->keterangan[$i] ?? null;
+
+            $keterangan = $request->keterangan[$i] ?? '-';
 
             JasaPegawai::updateOrCreate(
                 [
@@ -68,22 +90,66 @@ class jasaRuanganControllers extends Controller
             );
         }
 
-        return back()->with('success', 'Draft Jasa Pegawai berhasil disimpan');
+        return back()->with('success', 'Draft berhasil disimpan');
     }
 
     public function submit(Request $request)
     {
-        $jasa = JasaRuangan::find($request->jasa_ruangan_id);
-        $totalPegawai = JasaPegawai::where('jasa_ruangan_id', $jasa->id)->sum('nominal');
+        $jasa = JasaRuangan::with(['pegawai', 'periode'])->find($request->jasa_ruangan_id);
 
-        if ($totalPegawai != $jasa->nominal) {
-            return back()->with('error', 'Total pembagian tidak sama dengan alokasi nominal ruangan');
+        if (!$jasa) {
+            return back()->with('error', 'Data tidak ditemukan');
         }
 
-        // Langsung ubah status ke 'selesai'
+        // =========================
+        // 1. AUTO SAVE FIRST
+        // =========================
+        foreach ($jasa->pegawai as $p) {
+
+            JasaPegawai::firstOrCreate(
+                [
+                    'jasa_ruangan_id' => $jasa->id,
+                    'pegawai_id' => $p->id
+                ],
+                [
+                    'persen' => 0,
+                    'nominal' => 0,
+                    'keterangan' => '-'
+                ]
+            );
+        }
+
+        // =========================
+        // 2. VALIDASI TOTAL
+        // =========================
+        $pegawaiCount = JasaPegawai::where('jasa_ruangan_id', $jasa->id)->count();
+
+        if ($pegawaiCount == 0) {
+            return back()->with('error', 'Belum ada draft. Simpan dulu sebelum submit.');
+        }
+
+        $totalPegawai = JasaPegawai::where('jasa_ruangan_id', $jasa->id)
+            ->sum('nominal');
+
+        $selisih = abs($totalPegawai - $jasa->nominal);
+
+        if ($selisih > 1) {
+            return back()->with('error', 'Total belum sesuai, selisih Rp ' . $selisih);
+        }
+
+        // =========================
+        // 3. SYNC KETERANGAN DARI PERIODE
+        // =========================
+        if ($jasa->periode && $jasa->periode->keterangan) {
+            $jasa->keterangan = $jasa->periode->keterangan;
+        }
+
+        // =========================
+        // 4. LOCK DATA
+        // =========================
         $jasa->status = 'selesai';
         $jasa->save();
 
-        return back()->with('success', 'Berhasil disubmit! Data telah permanen dan masuk ke Laporan.');
+        return back()->with('success', 'Berhasil disubmit dan dikunci!');
     }
 }

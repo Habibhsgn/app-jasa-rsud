@@ -5,20 +5,6 @@
 @section('content')
     <h1 class="h3 mb-3"><strong>Isi Jasa Pegawai</strong></h1>
 
-    {{-- Notifikasi --}}
-    @if (session('success'))
-        <div class="alert alert-success alert-dismissible fade show" role="alert">
-            {{ session('success') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
-    @if (session('error'))
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            {{ session('error') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
-
     {{-- Form Filter Pencarian --}}
     <div class="card mb-4 border-0 shadow-sm">
         <div class="card-body">
@@ -28,7 +14,20 @@
                         <label class="form-label fw-bold">Pilih Bulan</label>
                         <select name="bulan" class="form-select">
                             @php
-                                $namaBulan = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                                $namaBulan = [
+                                    'Januari',
+                                    'Februari',
+                                    'Maret',
+                                    'April',
+                                    'Mei',
+                                    'Juni',
+                                    'Juli',
+                                    'Agustus',
+                                    'September',
+                                    'Oktober',
+                                    'November',
+                                    'Desember',
+                                ];
                             @endphp
                             @foreach ($namaBulan as $index => $nama)
                                 @php $val = str_pad($index + 1, 2, '0', STR_PAD_LEFT); @endphp
@@ -63,7 +62,7 @@
     </div>
 
     {{-- Content --}}
-    @if($data->isEmpty())
+    @if ($data->isEmpty())
         {{-- Tampilan jika data tidak ditemukan --}}
         <div class="card border-0 shadow-sm">
             <div class="card-body text-center py-5">
@@ -72,8 +71,8 @@
                 </div>
                 <h4 class="text-muted">Data Tidak Ditemukan</h4>
                 <p class="text-secondary mb-0">
-                    Belum ada penugasan pengisian jasa untuk periode 
-                    <strong>{{ $namaBulan[(int)$bulan - 1] }} {{ $tahun }}</strong>.
+                    Belum ada penugasan pengisian jasa untuk periode
+                    <strong>{{ $namaBulan[(int) $bulan - 1] }} {{ $tahun }}</strong>.
                 </p>
             </div>
         </div>
@@ -84,13 +83,28 @@
                 $isLocked = in_array($item->status, ['verifikasi', 'selesai']);
             @endphp
 
+            @if ($item->pegawai->count() == 0)
+                <div class="alert alert-warning">
+                    Belum ada data. Simpan draft dulu sebelum submit.
+                </div>
+            @endif
+
             <div class="card mb-4 border-{{ $item->status == 'revisi' ? 'danger' : 'default' }} shadow-sm"
                 data-nominal="{{ $item->nominal }}">
                 <div class="card-header d-flex justify-content-between align-items-center bg-transparent border-bottom">
                     <div>
-                        <span class="text-muted small">Periode:</span> <strong>{{ $item->periode->periode ?? '-' }}</strong> |
-                        <span class="text-muted small">Ruangan:</span> <strong>{{ $item->ruangan->nama_ruangan ?? '-' }}</strong> |
-                        <span class="text-muted small">Alokasi:</span> <strong class="text-primary">Rp {{ number_format($item->nominal, 0, ',', '.') }}</strong>
+                        <span class="text-muted small">Periode:</span>
+                        <strong>{{ $item->periode->periode ?? '-' }}</strong> |
+                        <span class="text-muted small">Ruangan:</span>
+                        <strong>{{ $item->ruangan->nama_ruangan ?? '-' }}</strong> |
+                        <span class="text-muted small">Alokasi:</span> <strong class="text-primary">Rp
+                            {{ number_format($item->nominal, 0, ',', '.') }}</strong>
+                        <br>
+                        @if ($item->periode->keterangan == 'REGULER')
+                            <span class="badge bg-primary">JASA REGULER</span>
+                        @else
+                            <span class="badge bg-success">JASA PENDING</span>
+                        @endif
                     </div>
                     <div>
                         @if ($item->status == 'verifikasi')
@@ -112,7 +126,7 @@
                             {{ $item->catatan }}
                         </div>
                     @endif
-                    
+
                     <form action="{{ route('karu.jasa.store') }}" method="POST">
                         @csrf
                         <input type="hidden" name="jasa_ruangan_id" value="{{ $item->id }}">
@@ -122,41 +136,76 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>Nama Pegawai</th>
+                                        <th width="18%">ID Petugas</th>
                                         <th>Jabatan</th>
                                         <th width="12%">Persen (%)</th>
                                         <th width="18%">Nominal (Rp)</th>
                                         <th>Keterangan</th>
                                     </tr>
                                 </thead>
+
                                 <tbody>
                                     @foreach ($item->pegawai as $p)
                                         @php
                                             $jp = \App\Models\JasaPegawai::where('jasa_ruangan_id', $item->id)
                                                 ->where('pegawai_id', $p->id)
                                                 ->first();
+
+                                            $disableInput = empty($p->id_petugas);
                                         @endphp
+
                                         <tr>
+
+                                            {{-- Nama --}}
                                             <td>
-                                                <strong>{{ $p->nama }}</strong><br>
-                                                <small class="text-muted">ID: {{ $p->id_petugas }}</small>
+                                                <strong>{{ $p->nama }}</strong>
                                                 <input type="hidden" name="pegawai_id[]" value="{{ $p->id }}">
                                             </td>
-                                            <td>{{ $p->jabatan }}</td>
+
+                                            {{-- ID Petugas --}}
                                             <td>
-                                                <input type="number" step="0.01" name="persen[]" class="form-control persen"
+                                                @if ($p->id_petugas)
+                                                    <span class="badge bg-success">
+                                                        {{ $p->id_petugas }}
+                                                    </span>
+                                                @else
+                                                    <span class="badge bg-warning text-dark">
+                                                        Lengkapi ID Petugas
+                                                    </span>
+                                                @endif
+                                            </td>
+
+                                            {{-- Jabatan --}}
+                                            <td>
+                                                {{ $p->jabatan }}
+                                            </td>
+
+                                            {{-- Persen --}}
+                                            <td>
+                                                <input type="number" step="0.01" name="persen[]"
+                                                    class="form-control persen"
                                                     value="{{ $jp ? (float) $jp->persen : '' }}"
-                                                    {{ $isLocked ? 'readonly' : '' }} required>
+                                                    title="{{ $disableInput ? 'Lengkapi ID Petugas terlebih dahulu.' : '' }}"
+                                                    {{ $isLocked || $disableInput ? 'readonly disabled' : '' }} required>
                                             </td>
+
+                                            {{-- Nominal --}}
                                             <td>
-                                                <input type="text" name="nominal[]" class="form-control nominal text-end fw-bold"
+                                                <input type="text" name="nominal[]"
+                                                    class="form-control nominal text-end fw-bold"
                                                     value="{{ $jp ? number_format($jp->nominal, 0, ',', '.') : '' }}"
-                                                    {{ $isLocked ? 'readonly' : '' }} required>
+                                                    title="{{ $disableInput ? 'Lengkapi ID Petugas terlebih dahulu.' : '' }}"
+                                                    {{ $isLocked || $disableInput ? 'readonly disabled' : '' }} required>
                                             </td>
+
+                                            {{-- Keterangan --}}
                                             <td>
                                                 <input type="text" name="keterangan[]" class="form-control"
                                                     value="{{ $jp ? $jp->keterangan : '' }}"
-                                                    {{ $isLocked ? 'readonly' : '' }}>
+                                                    title="{{ $disableInput ? 'Lengkapi ID Petugas terlebih dahulu.' : '' }}"
+                                                    {{ $isLocked || $disableInput ? 'readonly disabled' : '' }}>
                                             </td>
+
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -166,11 +215,14 @@
                         <div class="mt-3 p-3 bg-light border rounded shadow-sm">
                             <div class="row align-items-center">
                                 <div class="col-md-6">
-                                    <p class="mb-1">Total Persen: <span class="totalPersen fw-bold text-primary">0</span> %</p>
-                                    <p class="mb-0">Total Terbagi: <span class="fw-bold text-success">Rp <span class="totalNominal">0</span></span></p>
+                                    <p class="mb-1">Total Persen: <span class="totalPersen fw-bold text-primary">0</span>
+                                        %</p>
+                                    <p class="mb-0">Total Terbagi: <span class="fw-bold text-success">Rp <span
+                                                class="totalNominal">0</span></span></p>
                                 </div>
                                 <div class="col-md-6 text-end">
-                                    <h4 class="mb-0">Sisa Alokasi: <span class="sisaNominal fw-bold text-danger">0</span></h4>
+                                    <h4 class="mb-0">Sisa Alokasi: <span class="sisaNominal fw-bold text-danger">0</span>
+                                    </h4>
                                 </div>
                             </div>
                         </div>
@@ -238,10 +290,10 @@
 
                     if (sisa === 0) {
                         sisaNominalText.classList.replace('text-danger', 'text-success');
-                        if(btnSubmit) btnSubmit.disabled = false;
+                        if (btnSubmit) btnSubmit.disabled = false;
                     } else {
                         sisaNominalText.classList.replace('text-success', 'text-danger');
-                        if(btnSubmit) btnSubmit.disabled = true;
+                        if (btnSubmit) btnSubmit.disabled = true;
                     }
                 }
 
@@ -269,7 +321,9 @@
                 let formSubmit = card.querySelector('.form-submit');
                 if (formSubmit) {
                     formSubmit.addEventListener('submit', function(e) {
-                        if (!confirm('Apakah Anda yakin pembagian sudah pas? Sisa dana Rp 0. Data yang disubmit TIDAK BISA diubah lagi.')) {
+                        if (!confirm(
+                                'Apakah Anda yakin pembagian sudah pas? Sisa dana Rp 0. Data yang disubmit TIDAK BISA diubah lagi.'
+                            )) {
                             e.preventDefault();
                         }
                     });

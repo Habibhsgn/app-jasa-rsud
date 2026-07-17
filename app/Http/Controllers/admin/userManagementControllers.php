@@ -24,4 +24,16 @@ class userManagementControllers extends Controller
 
         return back()->with('success', 'Status user ' . $user->name . ' berhasil diubah.');
     }
+    public function updateRole(Request $request, $id)
+    {
+        $request->validate([
+            'role' => 'required|in:karu,koordinator_karu'
+        ]);
+
+        $user = User::findOrFail($id);
+        $user->role = $request->role;
+        $user->save();
+
+        return back()->with('success', 'Role user ' . $user->name . ' berhasil diubah menjadi ' . strtoupper($request->role));
+    }
 }

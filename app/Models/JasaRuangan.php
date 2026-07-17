@@ -13,7 +13,8 @@ class JasaRuangan extends Model
         'ruangan_id',
         'persen',
         'nominal',
-        'status'
+        'status',
+        'keterangan'
     ];
 
     public function ruangan()
@@ -23,7 +24,7 @@ class JasaRuangan extends Model
 
     public function periode()
     {
-        return $this->belongsTo(PeriodeJasa::class);
+        return $this->belongsTo(PeriodeJasa::class, 'periode_id', 'id');
     }
 
     public function jasaPegawai()

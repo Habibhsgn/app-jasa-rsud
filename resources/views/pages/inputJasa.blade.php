@@ -2,179 +2,236 @@
 @section('title', 'Input Jasa & Generate')
 
 @section('content')
-    <h1 class="h3 mb-3"><strong>Input Jasa & Pembagian Ruangan</strong></h1>
 
+    <h1 class="h3 mb-3">
+        <strong>Input Jasa & Pembagian Ruangan</strong>
+    </h1>
+
+    {{-- ALERT --}}
     @if (session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
-    @if (session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
+        <div class="alert alert-success">
+            {{ session('success') }}
+        </div>
     @endif
 
+    @if (session('error'))
+        <div class="alert alert-danger">
+            {{ session('error') }}
+        </div>
+    @endif
+
+    {{-- FORM INPUT --}}
     <div class="card">
         <div class="card-body">
 
-            {{-- FORM RAHASIA UNTUK DELETE DRAFT (Diletakkan di luar form utama agar tidak nested error) --}}
-            @if (isset($periode) && $periode->status == 'draft')
-                <form id="formDelete" action="{{ route('jasa.destroyPeriode', $periode->id) }}" method="POST"
-                    style="display: none;">
-                    @csrf
-                    @method('DELETE')
-                </form>
-            @endif
-
-            {{-- FORM TOTAL JASA --}}
             <form id="formSimpanTotal" action="{{ route('jasa.storeTotal') }}" method="POST">
+
                 @csrf
+
                 <div class="row align-items-end">
+
+                    {{-- PERIODE --}}
                     <div class="col-md-3">
                         <label class="form-label">Periode (Bulan)</label>
-                        <input type="month" name="periode" class="form-control" value="{{ $periode->periode ?? '' }}"
-                            {{ $periode ? 'readonly' : '' }} required>
+                        <input type="month" name="periode" class="form-control" required>
                     </div>
 
-                    <div class="col-md-5">
-                        <label class="form-label">Total Jasa (Rp)</label>
-                        <input type="text" name="total_jasa" class="form-control fw-bold fs-5"
-                            value="{{ isset($periode) ? number_format($periode->total_jasa, 0, ',', '.') : '' }}"
-                            {{ $periode ? 'readonly' : '' }} required>
-                    </div>
-
+                    {{-- TOTAL --}}
                     <div class="col-md-4">
-                        @if (!isset($periode))
-                            <button type="submit" form="formSimpanTotal" class="btn btn-primary w-100 py-2">
-                                ⚡ Simpan & Generate Otomatis
-                            </button>
-                        @else
-                            @if ($periode->status == 'draft')
-                                <div class="d-flex gap-2">
-                                    <button type="button" class="btn btn-secondary w-100" disabled>Telah
-                                        Digenerate</button>
-
-                                    {{-- Tombol Batalkan Draft (Memanggil formDelete di atas) --}}
-                                    <button type="submit" form="formDelete" class="btn btn-danger h-100"
-                                        onclick="return confirm('Yakin ingin membatalkan & menghapus draft ini secara permanen?')"
-                                        title="Hapus Draft & Ulangi">
-                                        Hapus Draft
-                                    </button>
-                                </div>
-                            @else
-                                <button type="button" class="btn btn-success w-100 py-2" disabled>Telah Diproses
-                                    KARU</button>
-                            @endif
-                        @endif
+                        <label class="form-label">Total Jasa (Rp)</label>
+                        <input type="text" name="total_jasa" class="form-control fw-bold fs-5" required>
                     </div>
-                </div>
-            </form>
 
-            {{-- HASIL PEMBAGIAN OTOMATIS --}}
-            @if ($periode && $dataPembagian->count() > 0)
-                <hr class="mt-4">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h5 class="mb-0">
-                        @if ($periode->status == 'draft')
-                            Hasil Pembagian Otomatis (Master)
-                        @else
-                            Monitoring Progres Pengisian KARU
-                        @endif
-                    </h5>
-                    <span class="badge bg-{{ $periode->status == 'draft' ? 'secondary' : 'warning text-dark' }} fs-6">
-                        Status Master: {{ strtoupper(str_replace('_', ' ', $periode->status)) }}
-                    </span>
-                </div>
+                    {{-- KETERANGAN (BARU) --}}
+                    <div class="col-md-3">
+                        <label class="form-label">Jenis Jasa</label>
+                        <select name="keterangan" class="form-select" required>
+                            <option value="REGULER">JASA REGULER</option>
+                            <option value="PENDING">JASA PENDING</option>
+                        </select>
+                    </div>
 
-                <div class="table-responsive">
-                    <table class="table table-bordered table-striped table-sm align-middle">
-                        <thead class="table-light">
-                            <tr>
-                                <th width="5%" class="text-center">No</th>
-                                <th>Nama Ruangan</th>
-                                <th width="15%" class="text-center">Persentase</th>
-                                <th width="20%" class="text-end">Nominal Jasa (Rp)</th>
-                                <th width="15%" class="text-center">Status KARU</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @php
-                                $totalPersen = 0;
-                                $totalNominal = 0;
-                            @endphp
-                            @foreach ($dataPembagian as $index => $item)
-                                @php
-                                    $totalPersen += $item->persen;
-                                    $totalNominal += $item->nominal;
-                                @endphp
-                                <tr>
-                                    <td class="text-center">{{ $index + 1 }}</td>
-                                    <td class="fw-bold">{{ $item->ruangan->nama_ruangan ?? 'Ruangan Dihapus' }}</td>
-                                    <td class="text-center">{{ (float) $item->persen }}%</td>
-                                    <td class="text-end">Rp {{ number_format($item->nominal, 0, ',', '.') }}</td>
-                                    <td class="text-center">
-                                        {{-- Indikator Status Tiap Ruangan --}}
-                                        @if ($item->status == 'draft')
-                                            <span class="badge bg-secondary">Draft</span>
-                                        @elseif($item->status == 'selesai' || $item->status == 'verifikasi')
-                                            <span class="badge bg-success">✔ Selesai</span>
-                                        @elseif($item->status == 'revisi')
-                                            <span class="badge bg-danger">Revisi</span>
-                                        @else
-                                            <span class="badge bg-warning text-dark">Proses Isi...</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                        <tfoot>
-                            <tr class="fw-bold bg-light">
-                                <td colspan="2" class="text-end">TOTAL KESELURUHAN:</td>
-                                <td class="text-center text-primary">{{ (float) $totalPersen }}%</td>
-                                <td class="text-end text-success fs-5">Rp {{ number_format($totalNominal, 0, ',', '.') }}
-                                </td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                </div>
-
-                <div class="mt-4 text-end">
-                    @if ($periode->status == 'draft')
-                        <button id="btnSelesai" class="btn btn-success px-5 py-2 fw-bold" onclick="selesaiPembagian()">
-                            <i class="align-middle" data-feather="send"></i> Kunci & Kirim Penugasan ke Seluruh KARU
+                    {{-- BUTTON --}}
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-primary w-100 py-2">
+                            ⚡ Simpan & Generate
                         </button>
-                    @endif
+                    </div>
+
                 </div>
-            @endif
+
+            </form>
 
         </div>
     </div>
 
+    {{-- LIST PERIODE --}}
+    @foreach ($periodes as $periode)
+        <div class="card mt-4 border">
+
+            {{-- HEADER --}}
+            <div class="card-header d-flex justify-content-between align-items-center">
+
+                <div>
+                    <h5 class="mb-0">
+                        Periode: {{ \Carbon\Carbon::parse($periode->periode)->translatedFormat('F Y') }}
+                    </h5>
+
+                    <small class="text-muted">
+                        Total: Rp {{ number_format($periode->total_jasa, 0, ',', '.') }}
+                    </small>
+                    <br>
+                    {{-- 🔥 BADGE KETERANGAN --}}
+                    @if ($periode->keterangan == 'REGULER')
+                        <span class="badge bg-primary">JASA REGULER</span>
+                    @else
+                        <span class="badge bg-success">JASA PENDING</span>
+                    @endif
+                </div>
+
+                <div class="d-flex gap-2 align-items-center">
+
+
+
+                    {{-- STATUS --}}
+                    <span class="badge bg-{{ $periode->status == 'draft' ? 'secondary' : 'warning text-dark' }}">
+                        {{ strtoupper(str_replace('_', ' ', $periode->status)) }}
+                    </span>
+
+                    {{-- DELETE --}}
+                    @if ($periode->status == 'draft')
+                        <form action="{{ route('jasa.destroyPeriode', $periode->id) }}" method="POST">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Hapus draft?')">
+                                Hapus
+                            </button>
+                        </form>
+                    @endif
+
+                </div>
+
+            </div>
+
+            {{-- BODY --}}
+            <div class="card-body">
+
+                <div class="table-responsive">
+
+                    <table class="table table-bordered table-striped table-sm align-middle">
+
+                        <thead class="table-light">
+                            <tr>
+                                <th>No</th>
+                                <th>Ruangan</th>
+                                <th class="text-center">Persen</th>
+                                <th class="text-end">Nominal</th>
+                                <th class="text-center">Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+
+                            @php
+                                $totalPersen = 0;
+                                $totalNominal = 0;
+                            @endphp
+
+                            @forelse ($periode->pembagianRuangan as $index => $item)
+                                @php
+                                    $totalPersen += $item->persen;
+                                    $totalNominal += $item->nominal;
+                                @endphp
+
+                                <tr>
+                                    <td class="text-center">{{ $index + 1 }}</td>
+
+                                    <td class="fw-bold">
+                                        {{ $item->ruangan->nama_ruangan ?? '-' }}
+                                    </td>
+
+                                    <td class="text-center">
+                                        {{ $item->persen }}%
+                                    </td>
+
+                                    <td class="text-end">
+                                        Rp {{ number_format($item->nominal, 0, ',', '.') }}
+                                    </td>
+
+                                    <td class="text-center">
+                                        @if ($item->status == 'draft')
+                                            <span class="badge bg-secondary">Draft</span>
+                                        @elseif($item->status == 'selesai')
+                                            <span class="badge bg-success">Selesai</span>
+                                        @elseif($item->status == 'revisi')
+                                            <span class="badge bg-danger">Revisi</span>
+                                        @else
+                                            <span class="badge bg-warning text-dark">Proses</span>
+                                        @endif
+                                    </td>
+                                </tr>
+
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted">
+                                        Tidak ada data
+                                    </td>
+                                </tr>
+                            @endforelse
+
+                        </tbody>
+
+                        <tfoot>
+                            <tr class="fw-bold bg-light">
+                                <td colspan="2" class="text-end">TOTAL</td>
+                                <td class="text-center text-primary">
+                                    {{ $totalPersen }}%
+                                </td>
+                                <td class="text-end text-success">
+                                    Rp {{ number_format($totalNominal, 0, ',', '.') }}
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+
+                    </table>
+
+                </div>
+
+                {{-- BUTTON KIRIM --}}
+                @if ($periode->status == 'draft')
+                    <div class="mt-4 text-end">
+
+                        <button class="btn btn-success px-5 py-2 fw-bold" onclick="selesaiPembagian({{ $periode->id }})">
+
+                            🔥 Kunci & Kirim ke KARU
+
+                        </button>
+
+                    </div>
+                @endif
+
+            </div>
+
+        </div>
+    @endforeach
+
+    {{-- SCRIPT --}}
     <script>
-        // Auto-format pemisah ribuan saat mengetik di input Total Jasa
         let inputTotalJasa = document.querySelector('input[name="total_jasa"]');
-        if (inputTotalJasa && !inputTotalJasa.readOnly) {
-            inputTotalJasa.addEventListener('input', function(e) {
-                let numericValue = this.value.replace(/[^0-9]/g, '');
-                if (numericValue) {
-                    this.value = new Intl.NumberFormat('id-ID').format(numericValue);
-                } else {
-                    this.value = '';
-                }
+
+        if (inputTotalJasa) {
+            inputTotalJasa.addEventListener('input', function() {
+                let val = this.value.replace(/[^0-9]/g, '');
+                this.value = val ? new Intl.NumberFormat('id-ID').format(val) : '';
             });
         }
 
-        // Fungsi Submit Bulk ke KARU
-        function selesaiPembagian() {
-            if (!confirm(
-                    'Apakah Anda yakin data pembagian otomatis ini sudah benar? Setelah dikirim, data tidak bisa dihapus lagi.'
-                    )) return;
+        function selesaiPembagian(id) {
 
-            let btn = document.getElementById('btnSelesai');
-            btn.disabled = true;
-            btn.innerText = 'Mengirim...';
+            if (!confirm('Yakin kirim ke KARU?')) return;
 
-            let periodeId = {{ $periode->id ?? 0 }};
-
-            fetch(`/jasa/selesai-pembagian/${periodeId}`, {
+            fetch(`/jasa/selesai-pembagian/${id}`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
@@ -183,19 +240,17 @@
                 })
                 .then(res => res.json())
                 .then(res => {
+
                     if (res.status === 'success') {
-                        alert('Sukses! Penugasan telah dikirim ke masing-masing KARU.');
+                        alert('Berhasil dikirim');
                         location.reload();
                     } else {
                         alert(res.message);
-                        btn.disabled = false;
-                        btn.innerText = 'Kunci & Kirim Penugasan ke Seluruh KARU';
                     }
-                }).catch(err => {
-                    alert('Terjadi kesalahan jaringan.');
-                    btn.disabled = false;
-                    btn.innerText = 'Kunci & Kirim Penugasan ke Seluruh KARU';
+
                 });
+
         }
     </script>
+
 @endsection

@@ -10,57 +10,89 @@ class masterRuanganControllers extends Controller
 {
     public function index()
     {
-        $ruangan = Ruangan::orderBy('nama_ruangan', 'asc')->get();
-        // Hitung total persen saat ini
-        $totalPersen = $ruangan->sum('persen_default');
+        $ruangan = Ruangan::orderByDesc('is_active')
+            ->orderBy('nama_ruangan')
+            ->get();
 
-        return view('pages.masterRuangan', compact('ruangan', 'totalPersen'));
+        $totalPersen = $ruangan
+            ->where('is_active', true)
+            ->sum('persen_default');
+
+        return view('pages.masterRuangan', compact(
+            'ruangan',
+            'totalPersen'
+        ));
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'nama_ruangan' => 'required|string|max:255'
+            'nama_ruangan' => 'required|string|max:100',
+            'resiko'       => 'required|numeric|in:1,2,4,6',
+            'emergency'    => 'required|numeric|in:1,2,4,6',
         ]);
 
         Ruangan::create([
-            'nama_ruangan' => strtoupper($request->nama_ruangan),
-            'persen_default' => 0 // Default 0 saat baru ditambah
+            'nama_ruangan'   => strtoupper($request->nama_ruangan),
+            'persen_default' => 0,
+            'resiko'         => $request->resiko,
+            'emergency'      => $request->emergency,
+            'is_active'      => true,
         ]);
 
-        return back()->with('success', 'Ruangan baru berhasil ditambahkan.');
+        return back()->with(
+            'success',
+            'Ruangan berhasil ditambahkan.'
+        );
     }
 
     public function updateBulk(Request $request)
     {
-        // Pastikan input array ada
-        if (!$request->has('ruangan_id')) {
-            return back()->with('error', 'Tidak ada data ruangan.');
+        $request->validate([
+            'ruangan_id'        => 'required|array',
+            'nama_ruangan.*'    => 'required|string|max:100',
+            'persen_default.*'  => 'required|numeric|min:0|max:100',
+            'resiko.*'          => 'required|numeric|in:1,2,4,6',
+            'emergency.*'       => 'required|numeric|in:1,2,4,6',
+        ]);
+
+        $totalPersen = collect($request->persen_default)->sum();
+
+        if (round($totalPersen, 2) != 100) {
+            return back()->with(
+                'error',
+                'Total seluruh persentase harus tepat 100%. Saat ini: '
+                . round($totalPersen, 2) . '%'
+            );
         }
 
-        $totalPersen = array_sum($request->persen_default);
-
-        // Validasi ketat harus 100%
-        if (round($totalPersen, 2) != 100.00) {
-            return back()->with('error', 'Gagal menyimpan! Total seluruh persentase harus tepat 100%. Saat ini: ' . round($totalPersen, 2) . '%');
-        }
-
-        // Looping update semua ruangan
         foreach ($request->ruangan_id as $index => $id) {
+
             Ruangan::where('id', $id)->update([
-                'nama_ruangan' => strtoupper($request->nama_ruangan[$index]),
-                'persen_default' => $request->persen_default[$index] ?? 0
+                'nama_ruangan'   => strtoupper($request->nama_ruangan[$index]),
+                'persen_default' => $request->persen_default[$index],
+                'resiko'         => $request->resiko[$index],
+                'emergency'      => $request->emergency[$index],
             ]);
         }
 
-        return back()->with('success', 'Master Ruangan dan Persentase berhasil diperbarui secara massal!');
+        return back()->with(
+            'success',
+            'Data ruangan berhasil diperbarui.'
+        );
     }
 
-    public function destroy($id)
+    public function toggleStatus($id)
     {
         $ruangan = Ruangan::findOrFail($id);
-        $ruangan->delete();
 
-        return back()->with('success', 'Ruangan berhasil dihapus.');
+        $ruangan->update([
+            'is_active' => !$ruangan->is_active
+        ]);
+
+        return back()->with(
+            'success',
+            'Status ruangan berhasil diperbarui.'
+        );
     }
 }

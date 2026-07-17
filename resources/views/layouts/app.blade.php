@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,73 +11,87 @@
 </head>
 
 <body>
-<div class="wrapper">
+    <div class="wrapper">
 
-    {{-- Sidebar --}}
-    @include('components.sidebar')
+        {{-- Sidebar --}}
+        @include('components.sidebar')
 
-    <div class="main">
+        <div class="main">
 
-        {{-- Navbar --}}
-        @include('components.navbar')
+            {{-- Navbar --}}
+            @include('components.navbar')
 
-        {{-- Content --}}
-        <main class="content">
-            <div class="container-fluid p-0">
-                @yield('content')
-            </div>
-        </main>
-
-        {{-- Footer --}}
-        @include('components.footer')
-
-    </div>
-</div>
-@yield('modals')
-
-{{-- Scripts --}}
-@include('components.script')
-
-</body>
-</html>
-
-{{-- <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <meta name="csrf-token" content="{{ csrf_token() }}">
-
-        <title>{{ config('app.name', 'Laravel') }}</title>
-
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-
-        <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
-    </head>
-    <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
-            @include('layouts.navigation')
-
-            <!-- Page Heading -->
-            @isset($header)
-                <header class="bg-white shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        {{ $header }}
-                    </div>
-                </header>
-            @endisset
-
-            <!-- Page Content -->
-            <main>
-                {{ $slot }}
+            {{-- Content --}}
+            <main class="content">
+                <div class="container-fluid p-0">
+                    @yield('content')
+                </div>
             </main>
-        </div>
-    </body>
-</html>
-'components.script')
 
+            {{-- Footer --}}
+            @include('components.footer')
+
+        </div>
+    </div>
+    @yield('modals')
+
+    {{-- Scripts --}}
+    @include('components.script')
+
+
+    <!-- GLOBAL MINI MODAL -->
+    <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+    <script>
+        function showToast(type, message) {
+            const container = document.getElementById('toast-container');
+
+            const toast = document.createElement('div');
+
+            let bg = (type === 'success') ? '#28a745' : '#dc3545';
+
+            toast.style.background = bg;
+            toast.style.color = '#fff';
+            toast.style.padding = '12px 16px';
+            toast.style.marginBottom = '10px';
+            toast.style.borderRadius = '8px';
+            toast.style.boxShadow = '0 4px 10px rgba(0,0,0,0.15)';
+            toast.style.minWidth = '250px';
+            toast.style.fontSize = '14px';
+            toast.style.opacity = '0';
+            toast.style.transition = 'all 0.3s ease';
+
+            toast.innerText = message;
+
+            container.appendChild(toast);
+
+            // fade in
+            setTimeout(() => {
+                toast.style.opacity = '1';
+                toast.style.transform = 'translateY(0)';
+            }, 100);
+
+            // auto remove
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
 </body>
-</html> --}}
+@if (session('success'))
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            showToast('success', "{{ session('success') }}");
+        });
+    </script>
+@endif
+
+@if (session('error'))
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            showToast('error', "{{ session('error') }}");
+        });
+    </script>
+@endif
+
+</html>
