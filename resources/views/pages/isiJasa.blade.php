@@ -146,12 +146,22 @@
 
                                 <tbody>
                                     @foreach ($item->pegawai as $p)
-                                        @php
+                                        {{-- @php
                                             $jp = \App\Models\JasaPegawai::where('jasa_ruangan_id', $item->id)
                                                 ->where('pegawai_id', $p->id)
                                                 ->first();
 
                                             $disableInput = empty($p->id_petugas);
+                                        @endphp --}}
+
+                                        @php
+                                            $jp = \App\Models\JasaPegawai::where('jasa_ruangan_id', $item->id)
+                                                ->where('pegawai_id', $p->id)
+                                                ->first();
+
+                                            $isAdmin = auth()->user()->role === 'admin';
+
+                                            $disableInput = !$isAdmin && empty($p->id_petugas);
                                         @endphp
 
                                         <tr>
@@ -252,6 +262,8 @@
 
     {{-- Script Kalkulasi --}}
     <script>
+        const isAdmin = @json(auth()->user()->role === 'admin');
+
         function formatRupiah(angka) {
             return new Intl.NumberFormat('id-ID').format(angka);
         }
@@ -290,10 +302,16 @@
 
                     if (sisa === 0) {
                         sisaNominalText.classList.replace('text-danger', 'text-success');
-                        if (btnSubmit) btnSubmit.disabled = false;
+
+                        if (btnSubmit) {
+                            btnSubmit.disabled = false;
+                        }
                     } else {
                         sisaNominalText.classList.replace('text-success', 'text-danger');
-                        if (btnSubmit) btnSubmit.disabled = true;
+
+                        if (btnSubmit) {
+                            btnSubmit.disabled = !isAdmin;
+                        }
                     }
                 }
 
