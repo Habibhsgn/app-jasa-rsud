@@ -5,6 +5,7 @@ namespace App\Http\Controllers\pages;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Ruangan;
+use App\Models\Pegawai;
 use App\Models\PeriodeJasa;
 use App\Models\JasaPegawai;
 use App\Models\JasaRuangan;
@@ -16,7 +17,7 @@ class jasaRuanganControllers extends Controller
     {
         $user = Auth::user();
 
-        $query = JasaRuangan::with(['periode', 'ruangan', 'pegawai'])
+        $query = JasaRuangan::with(['periode', 'ruangan', 'jasaPegawai.pegawai'])
             ->whereIn('status', [
                 'proses_karu',
                 'verifikasi',
@@ -24,15 +25,8 @@ class jasaRuanganControllers extends Controller
                 'revisi'
             ]);
 
-        // =========================
-        // ROLE FILTERING
-        // =========================
         switch ($user->role) {
-
             case 'karu':
-                $query->where('ruangan_id', $user->ruangan_id);
-                break;
-
             case 'koordinator_karu':
                 $query->where('ruangan_id', $user->ruangan_id);
                 break;
@@ -42,9 +36,6 @@ class jasaRuanganControllers extends Controller
                 break;
         }
 
-        // =========================
-        // FILTER PERIODE
-        // =========================
         $bulan = $request->input('bulan', date('m'));
         $tahun = $request->input('tahun', date('Y'));
 
@@ -56,6 +47,43 @@ class jasaRuanganControllers extends Controller
         $query->whereIn('periode_id', $periodeIds);
 
         $data = $query->latest()->get();
+
+        // =========================
+        // SYNC PEGAWAI BARU KE DRAFT
+        // =========================
+        // Hanya untuk status yang MASIH BISA DIEDIT (belum dikunci/verifikasi).
+        // Kalau statusnya verifikasi/selesai, data histori TIDAK BOLEH diubah otomatis.
+        foreach ($data as $item) {
+            if (in_array($item->status, ['verifikasi', 'selesai'])) {
+                continue;
+            }
+
+            $currentPegawaiIds = Pegawai::where('ruangan_id', $item->ruangan_id)
+                ->pluck('id');
+
+            $existingPegawaiIds = $item->jasaPegawai->pluck('pegawai_id');
+
+            $pegawaiBaru = $currentPegawaiIds->diff($existingPegawaiIds);
+
+            foreach ($pegawaiBaru as $pegawaiId) {
+                JasaPegawai::firstOrCreate(
+                    [
+                        'jasa_ruangan_id' => $item->id,
+                        'pegawai_id' => $pegawaiId,
+                    ],
+                    [
+                        'persen' => 0,
+                        'nominal' => 0,
+                        'keterangan' => '-',
+                    ]
+                );
+            }
+        }
+
+        // Reload relasi jasaPegawai setelah sinkronisasi supaya data terbaru
+        if ($data->isNotEmpty()) {
+            $data->load('jasaPegawai.pegawai');
+        }
 
         return view('pages.isiJasa', compact(
             'data',
@@ -95,33 +123,12 @@ class jasaRuanganControllers extends Controller
 
     public function submit(Request $request)
     {
-        $jasa = JasaRuangan::with(['pegawai', 'periode'])->find($request->jasa_ruangan_id);
+        $jasa = JasaRuangan::with(['jasaPegawai', 'periode'])->find($request->jasa_ruangan_id);
 
         if (!$jasa) {
             return back()->with('error', 'Data tidak ditemukan');
         }
 
-        // =========================
-        // 1. AUTO SAVE FIRST
-        // =========================
-        foreach ($jasa->pegawai as $p) {
-
-            JasaPegawai::firstOrCreate(
-                [
-                    'jasa_ruangan_id' => $jasa->id,
-                    'pegawai_id' => $p->id
-                ],
-                [
-                    'persen' => 0,
-                    'nominal' => 0,
-                    'keterangan' => '-'
-                ]
-            );
-        }
-
-        // =========================
-        // 2. VALIDASI TOTAL
-        // =========================
         $pegawaiCount = JasaPegawai::where('jasa_ruangan_id', $jasa->id)->count();
 
         if ($pegawaiCount == 0) {
@@ -137,19 +144,28 @@ class jasaRuanganControllers extends Controller
             return back()->with('error', 'Total belum sesuai, selisih Rp ' . $selisih);
         }
 
-        // =========================
-        // 3. SYNC KETERANGAN DARI PERIODE
-        // =========================
         if ($jasa->periode && $jasa->periode->keterangan) {
             $jasa->keterangan = $jasa->periode->keterangan;
         }
 
-        // =========================
-        // 4. LOCK DATA
-        // =========================
         $jasa->status = 'selesai';
         $jasa->save();
 
         return back()->with('success', 'Berhasil disubmit dan dikunci!');
+    }
+
+    public function hapusDariDraft($jasaPegawaiId)
+    {
+        $jp = JasaPegawai::with('jasaRuangan')->findOrFail($jasaPegawaiId);
+
+        abort_unless(Auth::user()->role === 'admin', 403, 'Hanya admin yang boleh menghapus baris ini.');
+
+        if (in_array($jp->jasaRuangan->status, ['verifikasi', 'selesai'])) {
+            return back()->with('error', 'Data sudah terkunci, tidak bisa dihapus.');
+        }
+
+        $jp->delete();
+
+        return back()->with('success', 'Baris pegawai berhasil dihapus dari draft.');
     }
 }

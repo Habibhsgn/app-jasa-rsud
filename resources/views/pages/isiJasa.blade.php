@@ -83,7 +83,7 @@
                 $isLocked = in_array($item->status, ['verifikasi', 'selesai']);
             @endphp
 
-            @if ($item->pegawai->count() == 0)
+            @if ($item->jasaPegawai->count() == 0)
                 <div class="alert alert-warning">
                     Belum ada data. Simpan draft dulu sebelum submit.
                 </div>
@@ -145,31 +145,36 @@
                                 </thead>
 
                                 <tbody>
-                                    @foreach ($item->pegawai as $p)
-                                        {{-- @php
-                                            $jp = \App\Models\JasaPegawai::where('jasa_ruangan_id', $item->id)
-                                                ->where('pegawai_id', $p->id)
-                                                ->first();
-
-                                            $disableInput = empty($p->id_petugas);
-                                        @endphp --}}
-
+                                    @foreach ($item->jasaPegawai as $jp)
                                         @php
-                                            $jp = \App\Models\JasaPegawai::where('jasa_ruangan_id', $item->id)
-                                                ->where('pegawai_id', $p->id)
-                                                ->first();
+                                            $p = $jp->pegawai;
 
-                                            $isAdmin = auth()->user()->role === 'admin';
-
-                                            $disableInput = !$isAdmin && empty($p->id_petugas);
+                                            if (!$p) {
+                                                continue;
+                                            } // jaga-jaga kalau pegawai sudah dihapus permanen
                                         @endphp
 
-                                        <tr>
+                                        @php
+                                            $isAdmin = auth()->user()->role === 'admin';
+
+                                            $sudahPindah = $p->ruangan_id != $item->ruangan_id;
+
+                                            $disableInput = (!$isAdmin && empty($p->id_petugas)) || $sudahPindah;
+                                        @endphp
+
+                                        <tr class="{{ $sudahPindah ? 'table-warning' : '' }}">
 
                                             {{-- Nama --}}
                                             <td>
                                                 <strong>{{ $p->nama }}</strong>
                                                 <input type="hidden" name="pegawai_id[]" value="{{ $p->id }}">
+
+                                                @if ($sudahPindah)
+                                                    <br>
+                                                    <span class="badge bg-warning text-dark mt-1">
+                                                        Sudah pindah ke {{ $p->ruangan->nama_ruangan ?? '-' }}
+                                                    </span>
+                                                @endif
                                             </td>
 
                                             {{-- ID Petugas --}}
@@ -193,9 +198,8 @@
                                             {{-- Persen --}}
                                             <td>
                                                 <input type="number" step="0.01" name="persen[]"
-                                                    class="form-control persen"
-                                                    value="{{ $jp ? (float) $jp->persen : '' }}"
-                                                    title="{{ $disableInput ? 'Lengkapi ID Petugas terlebih dahulu.' : '' }}"
+                                                    class="form-control persen" value="{{ (float) $jp->persen }}"
+                                                    title="{{ $disableInput ? ($sudahPindah ? 'Pegawai sudah pindah ruangan.' : 'Lengkapi ID Petugas terlebih dahulu.') : '' }}"
                                                     {{ $isLocked || $disableInput ? 'readonly disabled' : '' }} required>
                                             </td>
 
@@ -203,17 +207,29 @@
                                             <td>
                                                 <input type="text" name="nominal[]"
                                                     class="form-control nominal text-end fw-bold"
-                                                    value="{{ $jp ? number_format($jp->nominal, 0, ',', '.') : '' }}"
-                                                    title="{{ $disableInput ? 'Lengkapi ID Petugas terlebih dahulu.' : '' }}"
+                                                    value="{{ number_format($jp->nominal, 0, ',', '.') }}"
+                                                    title="{{ $disableInput ? ($sudahPindah ? 'Pegawai sudah pindah ruangan.' : 'Lengkapi ID Petugas terlebih dahulu.') : '' }}"
                                                     {{ $isLocked || $disableInput ? 'readonly disabled' : '' }} required>
                                             </td>
 
                                             {{-- Keterangan --}}
                                             <td>
                                                 <input type="text" name="keterangan[]" class="form-control"
-                                                    value="{{ $jp ? $jp->keterangan : '' }}"
-                                                    title="{{ $disableInput ? 'Lengkapi ID Petugas terlebih dahulu.' : '' }}"
+                                                    value="{{ $jp->keterangan }}"
+                                                    title="{{ $disableInput ? 'Pegawai sudah pindah ruangan.' : '' }}"
                                                     {{ $isLocked || $disableInput ? 'readonly disabled' : '' }}>
+
+                                                @if ($sudahPindah && !$isLocked && $isAdmin)
+                                                    <form action="{{ route('jasa.pegawai.hapusDraft', $jp->id) }}"
+                                                        method="POST" class="mt-1">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="btn btn-outline-danger btn-sm"
+                                                            onclick="return confirm('Hapus baris {{ $p->nama }} dari draft ini? Nominal-nya akan bebas untuk dialokasikan ke pegawai lain.')">
+                                                            Hapus dari draft
+                                                        </button>
+                                                    </form>
+                                                @endif
                                             </td>
 
                                         </tr>

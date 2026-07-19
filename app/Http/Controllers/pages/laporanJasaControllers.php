@@ -15,7 +15,7 @@ class laporanJasaControllers extends Controller
     {
         $periodeId = $request->periode_id;
 
-        $query = JasaRuangan::with(['periode', 'ruangan', 'pegawai'])
+        $query = JasaRuangan::with(['periode', 'ruangan', 'jasaPegawai.pegawai'])
             ->where('status', 'selesai');
 
         if ($periodeId) {
@@ -37,7 +37,7 @@ class laporanJasaControllers extends Controller
     {
         $periodeId = $request->periode_id;
 
-        $query = JasaRuangan::with(['periode', 'ruangan', 'pegawai'])
+        $query = JasaRuangan::with(['periode', 'ruangan', 'jasaPegawai.pegawai'])
             ->where('status', 'selesai');
 
         if ($periodeId) {
