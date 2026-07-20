@@ -4,7 +4,6 @@ namespace App\Http\Controllers\pages;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Ruangan;
 use App\Models\Pegawai;
 use App\Models\PeriodeJasa;
 use App\Models\JasaPegawai;
@@ -17,7 +16,7 @@ class jasaRuanganControllers extends Controller
     {
         $user = Auth::user();
 
-        $query = JasaRuangan::with(['periode', 'ruangan', 'jasaPegawai.pegawai'])
+        $query = JasaRuangan::with(['periode', 'ruangan', 'jasaPegawai.pegawai.ruangan'])
             ->whereIn('status', [
                 'proses_karu',
                 'verifikasi',
@@ -25,6 +24,9 @@ class jasaRuanganControllers extends Controller
                 'revisi'
             ]);
 
+        // =========================
+        // ROLE FILTERING
+        // =========================
         switch ($user->role) {
             case 'karu':
             case 'koordinator_karu':
@@ -36,6 +38,9 @@ class jasaRuanganControllers extends Controller
                 break;
         }
 
+        // =========================
+        // FILTER PERIODE
+        // =========================
         $bulan = $request->input('bulan', date('m'));
         $tahun = $request->input('tahun', date('Y'));
 
@@ -51,8 +56,8 @@ class jasaRuanganControllers extends Controller
         // =========================
         // SYNC PEGAWAI BARU KE DRAFT
         // =========================
-        // Hanya untuk status yang MASIH BISA DIEDIT (belum dikunci/verifikasi).
-        // Kalau statusnya verifikasi/selesai, data histori TIDAK BOLEH diubah otomatis.
+        // Hanya untuk status yang MASIH BISA DIEDIT (belum verifikasi/selesai).
+        // Data yang sudah terkunci TIDAK BOLEH diubah otomatis - itu histori final.
         foreach ($data as $item) {
             if (in_array($item->status, ['verifikasi', 'selesai'])) {
                 continue;
@@ -80,9 +85,9 @@ class jasaRuanganControllers extends Controller
             }
         }
 
-        // Reload relasi jasaPegawai setelah sinkronisasi supaya data terbaru
+        // Reload relasi setelah sinkronisasi supaya data yang dirender terbaru
         if ($data->isNotEmpty()) {
-            $data->load('jasaPegawai.pegawai');
+            $data->load('jasaPegawai.pegawai.ruangan');
         }
 
         return view('pages.isiJasa', compact(
@@ -102,7 +107,6 @@ class jasaRuanganControllers extends Controller
 
             $nominalBersih = str_replace('.', '', $request->nominal[$i] ?? 0);
             $persen = $request->persen[$i] ?? 0;
-
             $keterangan = $request->keterangan[$i] ?? '-';
 
             JasaPegawai::updateOrCreate(
@@ -154,18 +158,42 @@ class jasaRuanganControllers extends Controller
         return back()->with('success', 'Berhasil disubmit dan dikunci!');
     }
 
+    /**
+     * Admin menghapus baris jasa_pegawai yang sudah tidak relevan
+     * (pegawainya sudah pindah ruangan), supaya nominalnya bisa
+     * dialokasikan ulang. Hanya untuk draft (belum verifikasi/selesai).
+     * Dipanggil via AJAX (fetch), makanya return JSON, bukan redirect.
+     */
     public function hapusDariDraft($jasaPegawaiId)
     {
-        $jp = JasaPegawai::with('jasaRuangan')->findOrFail($jasaPegawaiId);
+        $jp = JasaPegawai::with('jasaRuangan')->find($jasaPegawaiId);
 
-        abort_unless(Auth::user()->role === 'admin', 403, 'Hanya admin yang boleh menghapus baris ini.');
+        if (!$jp) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Data tidak ditemukan.'
+            ], 404);
+        }
+
+        if (Auth::user()->role !== 'admin') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya admin yang boleh menghapus baris ini.'
+            ], 403);
+        }
 
         if (in_array($jp->jasaRuangan->status, ['verifikasi', 'selesai'])) {
-            return back()->with('error', 'Data sudah terkunci, tidak bisa dihapus.');
+            return response()->json([
+                'success' => false,
+                'message' => 'Data sudah terkunci, tidak bisa dihapus.'
+            ], 422);
         }
 
         $jp->delete();
 
-        return back()->with('success', 'Baris pegawai berhasil dihapus dari draft.');
+        return response()->json([
+            'success' => true,
+            'message' => 'Baris pegawai berhasil dihapus dari draft.'
+        ]);
     }
 }
