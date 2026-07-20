@@ -17,7 +17,12 @@ class CheckActive
     {
         if (Auth::check() && !Auth::user()->is_active) {
             Auth::logout();
-            return redirect()->route('login')->with('error', 'Akun Anda belum aktif. Silakan hubungi Admin.');
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')
+                ->withErrors(['email' => 'Akun Anda belum aktif. Silakan hubungi Admin.']);
         }
 
         return $next($request);

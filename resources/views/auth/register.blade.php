@@ -9,7 +9,7 @@
             backdrop-filter: blur(15px);
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
             color: white;
         }
 
@@ -19,19 +19,19 @@
 
         .input-group-text {
             border-radius: 10px 0 0 10px;
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
             border: none;
             color: white;
         }
 
         .form-control {
-            background: rgba(255,255,255,0.2);
+            background: rgba(255, 255, 255, 0.2);
             border: none;
             color: white;
         }
 
         .form-control::placeholder {
-            color: rgba(255,255,255,0.7);
+            color: rgba(255, 255, 255, 0.7);
         }
 
         .btn-modern {
@@ -45,7 +45,7 @@
 
         .btn-modern:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
         }
 
         .link {
@@ -74,7 +74,8 @@
                     <label class="form-label">Nama</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-person"></i></span>
-                        <input type="text" name="name" class="form-control" placeholder="Masukkan nama" value="{{ old('name') }}" required>
+                        <input type="text" name="name" class="form-control" placeholder="Masukkan nama"
+                            value="{{ old('name') }}" required>
                     </div>
                     @error('name')
                         <small class="text-warning">{{ $message }}</small>
@@ -85,7 +86,8 @@
                     <label class="form-label">Email</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-envelope"></i></span>
-                        <input type="email" name="email" class="form-control" placeholder="Masukkan email" value="{{ old('email') }}" required>
+                        <input type="email" name="email" class="form-control" placeholder="Masukkan email"
+                            value="{{ old('email') }}" required>
                     </div>
                     @error('email')
                         <small class="text-warning">{{ $message }}</small>
@@ -108,15 +110,20 @@
                     <label class="form-label">Password</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                        <input type="password" name="password" class="form-control" placeholder="Masukkan password" required>
+                        <input type="password" name="password" class="form-control" placeholder="Masukkan password"
+                            value="" required>
                     </div>
+                    @error('password')
+                        <small class="text-warning">{{ $message }}</small>
+                    @enderror
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label">Konfirmasi Password</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-shield-lock"></i></span>
-                        <input type="password" name="password_confirmation" class="form-control" placeholder="Ulangi password" required>
+                        <input type="password" name="password_confirmation" class="form-control"
+                            placeholder="Ulangi password" required>
                     </div>
                 </div>
 

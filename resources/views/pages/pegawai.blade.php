@@ -3,17 +3,28 @@
 @section('title', 'Data Pegawai')
 
 @section('content')
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h1 class="h3 mb-0">
             <strong>Master Data Pegawai per Ruangan</strong>
         </h1>
 
-        @if (auth()->user()->role === 'admin')
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalPegawai"
-                onclick="siapkanFormTambah()">
-                ➕ Tambah Pegawai
-            </button>
-        @endif
+        <div class="d-flex gap-2">
+            @if (in_array(auth()->user()->role, ['admin', 'karu', 'koordinator_karu']))
+                <a href="{{ route('ruang-tunggu.index') }}" class="btn btn-outline-warning">
+                    🚪 Ruang Tunggu
+                </a>
+            @endif
+
+            @if (auth()->user()->role === 'admin')
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalPegawai"
+                    onclick="siapkanFormTambah()">
+                    ➕ Tambah Pegawai
+                </button>
+                <a href="{{ route('pegawai.export') }}" class="btn btn-outline-success">
+                    📤 Download Data Lengkap
+                </a>
+            @endif
+        </div>
     </div>
 
     @if (auth()->user()->role === 'admin')
@@ -24,11 +35,17 @@
 
             <div class="card-body">
 
-                <div class="alert alert-warning mb-3">
-                    <strong>Perhatian</strong>
+                <div class="alert alert-info mb-3">
+                    <strong>Cara kerja import</strong>
                     <ul class="mb-0">
-                        <li>Import akan <strong>menghapus seluruh data pegawai</strong> yang ada.</li>
-                        <li>Data akan diganti dengan isi file Excel.</li>
+                        <li>Baris dengan <strong>ID Petugas</strong> yang sudah ada di sistem akan
+                            <strong>diperbarui</strong> (bukan dihapus-diganti).
+                        </li>
+                        <li>Baris tanpa ID Petugas dicocokkan otomatis berdasarkan nama + ruangan.</li>
+                        <li>Baris yang tidak cocok dengan data manapun akan ditambahkan sebagai <strong>pegawai
+                                baru</strong>.</li>
+                        <li>Pegawai yang tidak muncul di file <strong>tidak akan dihapus</strong> — nonaktifkan manual
+                            lewat tombol Hapus jika perlu.</li>
                         <li>Pastikan seluruh ruangan pada Excel sudah tersedia pada master ruangan.</li>
                     </ul>
                 </div>
@@ -48,11 +65,8 @@
                         <div class="col-md-4 d-grid">
 
                             <button class="btn btn-success"
-                                onclick="return confirm('Semua data pegawai akan diganti dengan data dari Excel. Lanjutkan?')">
-
-                                📥 Import Excel
-
-                            </button>
+                                onclick="return confirm('Data pegawai akan diperbarui/ditambahkan sesuai isi file Excel. Lanjutkan?')">
+                                📥 Import Excel </button>
 
                         </div>
 
@@ -70,6 +84,17 @@
 
     @if (session('error'))
         <div class="alert alert-danger">{{ session('error') }}</div>
+    @endif
+
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <strong>Gagal menyimpan data:</strong>
+            <ul class="mb-0 mt-2">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
     @endif
 
     @if (session('import_errors'))
@@ -136,10 +161,12 @@
                         <thead class="table-light">
                             <tr>
                                 <th width="5%" class="text-center">No</th>
-                                <th width="25%">Nama Pegawai</th>
-                                <th width="20%">ID Petugas</th>
+                                <th width="22%">Nama Pegawai</th>
+                                <th width="18%">ID Petugas</th>
                                 <th>Jabatan</th>
-                                <th width="15%" class="text-center">Aksi</th>
+                                <th>Resiko</th>
+                                <th>Emergency</th>
+                                <th width="20%" class="text-center">Aksi</th>
                             </tr>
                         </thead>
 
@@ -149,7 +176,7 @@
                                     <td class="text-center">{{ $index + 1 }}</td>
                                     <td class="fw-bold">{{ $p->nama }}</td>
 
-                                    <td width="20%">
+                                    <td width="18%">
                                         @if (in_array(auth()->user()->role, ['admin', 'karu', 'koordinator_karu']))
                                             <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="18"
                                                 class="form-control form-control-sm input-id-petugas"
@@ -161,35 +188,75 @@
                                     </td>
 
                                     <td>{{ $p->jabatan }}</td>
+                                    <td>{{ $p->risk }}</td>
+                                    <td>{{ $p->emergency }}</td>
 
                                     <td class="text-center">
-                                        @if (auth()->user()->role === 'admin')
-                                            <button type="button" class="btn btn-warning btn-sm text-dark"
-                                                data-bs-toggle="modal" data-bs-target="#modalPegawai"
-                                                onclick="siapkanFormEdit(
-                                            {{ $p->id }},
-                                            '{{ $p->nama }}',
-                                            '{{ $p->id_petugas }}',
-                                            '{{ $p->jabatan }}',
-                                            '{{ $p->ruangan_id }}'
-                                        )">
-                                                Edit
-                                            </button>
 
-                                            <form action="{{ route('pegawai.destroy', $p->id) }}" method="POST"
-                                                class="d-inline">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="btn btn-danger btn-sm"
-                                                    onclick="return confirm('Yakin ingin menghapus pegawai ini?')">
-                                                    Hapus
-                                                </button>
-                                            </form>
-                                        @elseif(in_array(auth()->user()->role, ['karu', 'koordinator_karu']))
-                                            <span class="badge bg-info">Dapat Mengisi ID Petugas</span>
+                                        @if ($p->status === 'pindah')
+                                            {{-- Pegawai sedang dalam proses pindah --}}
+                                            <span class="badge bg-warning text-dark d-block mb-1">
+                                                Menunggu diterima di
+                                                {{ $p->ruanganTujuan->nama_ruangan ?? '-' }}
+                                            </span>
+
+                                            @if (auth()->user()->role === 'admin')
+                                                <form action="{{ route('pegawai.pindah.batal', $p->id) }}" method="POST"
+                                                    class="d-inline">
+                                                    @csrf
+                                                    <button type="submit" class="btn btn-outline-secondary btn-sm"
+                                                        onclick="return confirm('Batalkan pengajuan pindah pegawai ini?')">
+                                                        Batalkan Pindah
+                                                    </button>
+                                                </form>
+                                            @else
+                                                <span class="text-muted small">Menunggu konfirmasi</span>
+                                            @endif
                                         @else
-                                            <span class="text-muted">Read Only</span>
+                                            @if (auth()->user()->role === 'admin')
+                                                <button type="button" class="btn btn-warning btn-sm text-dark"
+                                                    data-bs-toggle="modal" data-bs-target="#modalPegawai"
+                                                    onclick="siapkanFormEdit(
+                                                        {{ $p->id }},
+                                                        {{ Js::from($p->nama) }},
+                                                        {{ Js::from($p->id_petugas) }},
+                                                        {{ Js::from($p->jabatan) }},
+                                                        {{ Js::from($p->ruangan_id) }},
+                                                        {{ Js::from($p->pendidikan_non_formal) }},
+                                                        {{ Js::from($p->gaji_pokok) }}
+                                                    )">
+                                                    Edit
+                                                </button>
+
+                                                <button type="button" class="btn btn-outline-primary btn-sm"
+                                                    data-bs-toggle="modal" data-bs-target="#modalPindah"
+                                                    onclick="siapkanFormPindah({{ $p->id }}, '{{ $p->nama }}', {{ $p->ruangan_id }})">
+                                                    Pindah
+                                                </button>
+
+                                                <form action="{{ route('pegawai.destroy', $p->id) }}" method="POST"
+                                                    class="d-inline">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button type="submit" class="btn btn-danger btn-sm"
+                                                        onclick="return confirm('Yakin ingin menghapus pegawai ini?')">
+                                                        Hapus
+                                                    </button>
+                                                </form>
+                                            @elseif(in_array(auth()->user()->role, ['karu', 'koordinator_karu']))
+                                                <span class="badge bg-info d-block mb-1">Dapat Mengisi ID
+                                                    Petugas</span>
+
+                                                <button type="button" class="btn btn-outline-primary btn-sm"
+                                                    data-bs-toggle="modal" data-bs-target="#modalPindah"
+                                                    onclick="siapkanFormPindah({{ $p->id }}, '{{ $p->nama }}', {{ $p->ruangan_id }})">
+                                                    Ajukan Pindah
+                                                </button>
+                                            @else
+                                                <span class="text-muted">Read Only</span>
+                                            @endif
                                         @endif
+
                                     </td>
                                 </tr>
                             @endforeach
@@ -205,7 +272,7 @@
         </div>
     @endforelse
 
-    {{-- MODAL --}}
+    {{-- MODAL TAMBAH/EDIT PEGAWAI --}}
     @if (auth()->user()->role === 'admin')
         <div class="modal fade" id="modalPegawai" tabindex="-1">
             <div class="modal-dialog">
@@ -229,8 +296,7 @@
 
                             <div class="mb-3">
                                 <label>ID Petugas</label>
-                                <input type="text" name="id_petugas" id="inputIdPetugas" class="form-control"
-                                    required>
+                                <input type="text" name="id_petugas" id="inputIdPetugas" class="form-control">
                             </div>
 
                             <div class="mb-3">
@@ -242,10 +308,25 @@
                                 <label>Ruangan</label>
                                 <select name="ruangan_id" id="inputRuangan" class="form-select" required>
                                     <option value="">-- Pilih Ruangan --</option>
-                                    @foreach ($ruangan as $r)
-                                        <option value="{{ $r->id }}">{{ $r->nama_ruangan }}</option>
+                                    @foreach ($ruanganDropdown as $rd)
+                                        <option value="{{ $rd->id }}">
+                                            {{ $rd->nama_ruangan }}
+                                        </option>
                                     @endforeach
                                 </select>
+                            </div>
+
+                            {{-- FIX: field ini wajib diisi menurut controller, tapi sebelumnya tidak ada di form --}}
+                            <div class="mb-3">
+                                <label>Pendidikan Non Formal</label>
+                                <input type="text" name="pendidikan_non_formal" id="inputPendidikanNonFormal"
+                                    class="form-control">
+                            </div>
+
+                            <div class="mb-3">
+                                <label>Gaji Pokok</label>
+                                <input type="number" name="gaji_pokok" id="inputGajiPokok" class="form-control"
+                                    min="0" step="1000" required>
                             </div>
 
                         </div>
@@ -261,6 +342,50 @@
         </div>
     @endif
 
+    {{-- MODAL PINDAH RUANGAN --}}
+    @if (in_array(auth()->user()->role, ['admin', 'karu', 'koordinator_karu']))
+        <div class="modal fade" id="modalPindah" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold">Ajukan Pindah Ruangan</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <form id="formPindah" method="POST">
+                        @csrf
+
+                        <div class="modal-body">
+                            <p>
+                                Pegawai: <strong id="pindahNamaPegawai"></strong>
+                            </p>
+
+                            <div class="mb-3">
+                                <label>Ruangan Tujuan</label>
+                                {{-- FIX: pakai $ruanganDropdown (semua ruangan, tidak difilter role)
+                                 bukan $ruangan (yang difilter untuk karu/koordinator_karu). --}}
+                                <select name="ruangan_tujuan_id" id="pindahRuanganTujuan" class="form-select" required>
+                                    <option value="">-- Pilih Ruangan Tujuan --</option>
+                                    @foreach ($ruanganDropdown as $r)
+                                        <option value="{{ $r->id }}" data-ruangan-asal="{{ $r->id }}">
+                                            {{ $r->nama_ruangan }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                                <small class="text-muted">Ruangan asal pegawai tidak akan muncul sebagai
+                                    pilihan.</small>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                            <button type="submit" class="btn btn-primary">Ajukan Pindah</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- SCRIPT --}}
     <script>
@@ -273,9 +398,11 @@
             document.getElementById('inputIdPetugas').value = '';
             document.getElementById('inputJabatan').value = '';
             document.getElementById('inputRuangan').value = '';
+            document.getElementById('inputPendidikanNonFormal').value = '';
+            document.getElementById('inputGajiPokok').value = '';
         }
 
-        function siapkanFormEdit(id, nama, id_petugas, jabatan, ruangan_id) {
+        function siapkanFormEdit(id, nama, id_petugas, jabatan, ruangan_id, pendidikan_non_formal, gaji_pokok) {
             document.getElementById('modalPegawaiLabel').innerText = 'Edit Pegawai';
             document.getElementById('formMethod').value = 'PUT';
             document.getElementById('formPegawai').action = `/pegawai/${id}`;
@@ -284,17 +411,41 @@
             document.getElementById('inputIdPetugas').value = id_petugas;
             document.getElementById('inputJabatan').value = jabatan;
             document.getElementById('inputRuangan').value = ruangan_id;
+            document.getElementById('inputPendidikanNonFormal').value = pendidikan_non_formal;
+            document.getElementById('inputGajiPokok').value = gaji_pokok;
         }
 
-        document.querySelectorAll('.select-risk-emergency').forEach(function(select) {
+        function siapkanFormPindah(id, nama, ruanganAsalId) {
+            document.getElementById('pindahNamaPegawai').innerText = nama;
+            document.getElementById('formPindah').action = `/pegawai/${id}/pindah`;
+
+            const select = document.getElementById('pindahRuanganTujuan');
+            select.value = '';
+
+            // Sembunyikan / disable ruangan asal dari pilihan tujuan
+            Array.from(select.options).forEach(opt => {
+                if (opt.value !== '' && parseInt(opt.dataset.ruanganAsal) === ruanganAsalId) {
+                    opt.disabled = true;
+                    if (!opt.textContent.includes('(ruangan saat ini)')) {
+                        opt.textContent += ' (ruangan saat ini)';
+                    }
+                } else {
+                    opt.disabled = false;
+                    opt.textContent = opt.textContent.replace(' (ruangan saat ini)', '');
+                }
+            });
+        }
+
+        // FIX: sebelumnya class selector & data-field di sini tidak cocok dengan HTML
+        // (".select-risk-emergency" vs "select-resiko-emergency", data-field "risk" vs "resiko")
+        // sehingga perubahan dropdown resiko/emergency di header ruangan tidak pernah tersimpan.
+        document.querySelectorAll('.select-resiko-emergency').forEach(function(select) {
             select.addEventListener('change', function() {
                 const id = this.dataset.id;
-                const field = this.dataset.field;
-                const value = this.value;
 
-                // ambil select pasangannya (risk/emergency) di card yang sama
+                // ambil select pasangannya (resiko/emergency) di card header yang sama
                 const card = this.closest('.card-header');
-                const riskSelect = card.querySelector('[data-field="risk"]');
+                const resikoSelect = card.querySelector('[data-field="resiko"]');
                 const emergencySelect = card.querySelector('[data-field="emergency"]');
 
                 this.disabled = true;
@@ -307,7 +458,7 @@
                             'Accept': 'application/json'
                         },
                         body: JSON.stringify({
-                            risk: riskSelect.value,
+                            resiko: resikoSelect.value,
                             emergency: emergencySelect.value
                         })
                     })

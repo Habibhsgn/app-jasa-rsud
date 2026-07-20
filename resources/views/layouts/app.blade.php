@@ -6,6 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title')</title>
 
+    {{-- Bootstrap CSS --}}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+
     <link href="{{ asset('assets/css/app.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 
@@ -39,14 +43,20 @@
 
         </div>
     </div>
+
     @yield('modals')
 
     {{-- Scripts --}}
     @include('components.script')
 
+    {{-- Bootstrap JS Bundle --}}
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous">
+    </script>
 
     <!-- GLOBAL MINI MODAL -->
     <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+
     <script>
         function showToast(type, message) {
             const container = document.getElementById('toast-container');
@@ -70,13 +80,11 @@
 
             container.appendChild(toast);
 
-            // fade in
             setTimeout(() => {
                 toast.style.opacity = '1';
                 toast.style.transform = 'translateY(0)';
             }, 100);
 
-            // auto remove
             setTimeout(() => {
                 toast.style.opacity = '0';
                 setTimeout(() => toast.remove(), 300);
@@ -91,6 +99,7 @@
 
     @stack('scripts')
 </body>
+
 @if (session('success'))
     <script>
         document.addEventListener("DOMContentLoaded", function() {

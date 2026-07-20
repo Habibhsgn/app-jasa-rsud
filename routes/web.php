@@ -32,7 +32,7 @@ Route::get('/', function () {
 | AUTH ROUTES
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth', 'verified', 'active'])->group(function () {
+Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
@@ -59,6 +59,9 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
 
         Route::post('/isi-jasa/submit', [jasaRuanganControllers::class, 'submit'])
             ->name('karu.jasa.submit');
+
+        Route::delete('/jasa-pegawai/{id}/hapus-draft', [jasaRuanganControllers::class, 'hapusDariDraft'])
+            ->name('jasa.pegawai.hapusDraft');
     });
 
 
@@ -213,6 +216,9 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/pegawai/import', [pegawaiControllers::class, 'import'])
         ->name('pegawai.import');
 
+    Route::get('/pegawai/export', [pegawaiControllers::class, 'export'])
+        ->name('pegawai.export');
+
     Route::post(
         '/pegawai/{id}/id-petugas',
         [pegawaiControllers::class, 'updateIdPetugas']
@@ -221,7 +227,12 @@ Route::middleware(['auth', 'verified', 'active'])->group(function () {
     Route::post('/ruangan/{id}/resiko-emergency', [pegawaiControllers::class, 'updateRuanganResikoEmergency'])
         ->name('ruangan.updateResikoEmergency');
 
+    Route::post('/pegawai/{id}/pindah', [pegawaiControllers::class, 'ajukanPindah'])->name('pegawai.pindah');
+    Route::post('/pegawai/{id}/pindah/batal', [pegawaiControllers::class, 'batalkanPindah'])->name('pegawai.pindah.batal');
 
+    Route::get('/ruang-tunggu', [pegawaiControllers::class, 'ruangTunggu'])->name('ruang-tunggu.index');
+    Route::post('/ruang-tunggu/{id}/terima', [pegawaiControllers::class, 'terimaPindah'])->name('ruang-tunggu.terima');
+    Route::post('/ruang-tunggu/{id}/tolak', [pegawaiControllers::class, 'tolakPindah'])->name('ruang-tunggu.tolak');
 
     /*
     |--------------------------------------------------------------------------

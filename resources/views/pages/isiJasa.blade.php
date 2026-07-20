@@ -63,7 +63,6 @@
 
     {{-- Content --}}
     @if ($data->isEmpty())
-        {{-- Tampilan jika data tidak ditemukan --}}
         <div class="card border-0 shadow-sm">
             <div class="card-body text-center py-5">
                 <div class="mb-3">
@@ -77,17 +76,28 @@
             </div>
         </div>
     @else
-        {{-- Loop Data Jasa Ruangan --}}
         @foreach ($data as $item)
             @php
                 $isLocked = in_array($item->status, ['verifikasi', 'selesai']);
+                $isAdmin = auth()->user()->role === 'admin';
             @endphp
 
-            @if ($item->pegawai->count() == 0)
+            @if ($item->jasaPegawai->count() == 0)
                 <div class="alert alert-warning">
                     Belum ada data. Simpan draft dulu sebelum submit.
                 </div>
             @endif
+
+            @php
+                // Pegawai yang baru masuk ruangan ini dan belum pernah diisi jasanya
+                // sama sekali (kemungkinan besar hasil sinkronisasi otomatis karena pindah).
+                $pegawaiBaruMasuk = $item->jasaPegawai->filter(function ($jp) use ($item) {
+                    return $jp->pegawai &&
+                        $jp->pegawai->ruangan_id == $item->ruangan_id &&
+                        $jp->persen == 0 &&
+                        $jp->nominal == 0;
+                });
+            @endphp
 
             <div class="card mb-4 border-{{ $item->status == 'revisi' ? 'danger' : 'default' }} shadow-sm"
                 data-nominal="{{ $item->nominal }}">
@@ -127,7 +137,14 @@
                         </div>
                     @endif
 
-                    <form action="{{ route('karu.jasa.store') }}" method="POST">
+                    @if (!$isLocked && $pegawaiBaruMasuk->isNotEmpty())
+                        <div class="alert alert-info">
+                            <strong>ℹ️ Ada pegawai baru / pindahan yang belum diisi jasanya di ruangan ini:</strong>
+                            {{ $pegawaiBaruMasuk->pluck('pegawai.nama')->implode(', ') }}.
+                        </div>
+                    @endif
+
+                    <form action="{{ route('karu.jasa.store') }}" method="POST" id="formJasa{{ $item->id }}">
                         @csrf
                         <input type="hidden" name="jasa_ruangan_id" value="{{ $item->id }}">
 
@@ -145,21 +162,46 @@
                                 </thead>
 
                                 <tbody>
-                                    @foreach ($item->pegawai as $p)
+                                    @foreach ($item->jasaPegawai as $jp)
                                         @php
-                                            $jp = \App\Models\JasaPegawai::where('jasa_ruangan_id', $item->id)
-                                                ->where('pegawai_id', $p->id)
-                                                ->first();
-
-                                            $disableInput = empty($p->id_petugas);
+                                            $p = $jp->pegawai;
+                                            if (!$p) {
+                                                continue;
+                                            } // pegawai sudah dihapus permanen
                                         @endphp
 
-                                        <tr>
+                                        @php
+                                            $sudahPindah = $p->ruangan_id != $item->ruangan_id;
+                                            $adaIsinya = $jp->persen > 0 || $jp->nominal > 0;
+                                            $disableInput = (!$isAdmin && empty($p->id_petugas)) || $sudahPindah;
+                                        @endphp
+
+                                        <tr class="{{ $sudahPindah ? 'table-warning' : '' }}">
 
                                             {{-- Nama --}}
                                             <td>
                                                 <strong>{{ $p->nama }}</strong>
                                                 <input type="hidden" name="pegawai_id[]" value="{{ $p->id }}">
+
+                                                @if ($sudahPindah && $adaIsinya)
+                                                    <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
+                                                        <strong>⚠️ Sudah pindah ke
+                                                            {{ $p->ruangan->nama_ruangan ?? '-' }}.</strong><br>
+                                                        Data ini terlanjur diisi sebelum pindah
+                                                        ({{ (float) $jp->persen }}% / Rp
+                                                        {{ number_format($jp->nominal, 0, ',', '.') }})
+                                                        .
+                                                        @if ($isAdmin && !$isLocked)
+                                                            Biarkan (dianggap hak dia sebelum pindah), atau hapus di kolom
+                                                            Keterangan.
+                                                        @endif
+                                                    </div>
+                                                @elseif ($sudahPindah)
+                                                    <div class="alert alert-secondary py-1 px-2 mt-2 mb-0 small">
+                                                        ℹ️ Sudah pindah ke {{ $p->ruangan->nama_ruangan ?? '-' }}, belum
+                                                        sempat diisi jasanya di sini.
+                                                    </div>
+                                                @endif
                                             </td>
 
                                             {{-- ID Petugas --}}
@@ -176,16 +218,13 @@
                                             </td>
 
                                             {{-- Jabatan --}}
-                                            <td>
-                                                {{ $p->jabatan }}
-                                            </td>
+                                            <td>{{ $p->jabatan }}</td>
 
                                             {{-- Persen --}}
                                             <td>
                                                 <input type="number" step="0.01" name="persen[]"
-                                                    class="form-control persen"
-                                                    value="{{ $jp ? (float) $jp->persen : '' }}"
-                                                    title="{{ $disableInput ? 'Lengkapi ID Petugas terlebih dahulu.' : '' }}"
+                                                    class="form-control persen" value="{{ (float) $jp->persen }}"
+                                                    title="{{ $disableInput ? ($sudahPindah ? 'Pegawai sudah pindah ruangan.' : 'Lengkapi ID Petugas terlebih dahulu.') : '' }}"
                                                     {{ $isLocked || $disableInput ? 'readonly disabled' : '' }} required>
                                             </td>
 
@@ -193,17 +232,26 @@
                                             <td>
                                                 <input type="text" name="nominal[]"
                                                     class="form-control nominal text-end fw-bold"
-                                                    value="{{ $jp ? number_format($jp->nominal, 0, ',', '.') : '' }}"
-                                                    title="{{ $disableInput ? 'Lengkapi ID Petugas terlebih dahulu.' : '' }}"
+                                                    value="{{ number_format($jp->nominal, 0, ',', '.') }}"
+                                                    title="{{ $disableInput ? ($sudahPindah ? 'Pegawai sudah pindah ruangan.' : 'Lengkapi ID Petugas terlebih dahulu.') : '' }}"
                                                     {{ $isLocked || $disableInput ? 'readonly disabled' : '' }} required>
                                             </td>
 
                                             {{-- Keterangan --}}
                                             <td>
                                                 <input type="text" name="keterangan[]" class="form-control"
-                                                    value="{{ $jp ? $jp->keterangan : '' }}"
-                                                    title="{{ $disableInput ? 'Lengkapi ID Petugas terlebih dahulu.' : '' }}"
+                                                    value="{{ $jp->keterangan }}"
+                                                    title="{{ $disableInput ? 'Pegawai sudah pindah ruangan.' : '' }}"
                                                     {{ $isLocked || $disableInput ? 'readonly disabled' : '' }}>
+
+                                                @if ($sudahPindah && !$isLocked && $isAdmin)
+                                                    <button type="button"
+                                                        class="btn btn-outline-danger btn-sm w-100 mt-1 btn-hapus-draft"
+                                                        data-id="{{ $jp->id }}" data-nama="{{ $p->nama }}"
+                                                        data-nominal="{{ number_format($jp->nominal, 0, ',', '.') }}">
+                                                        🗑️ Hapus dari draft
+                                                    </button>
+                                                @endif
                                             </td>
 
                                         </tr>
@@ -215,14 +263,14 @@
                         <div class="mt-3 p-3 bg-light border rounded shadow-sm">
                             <div class="row align-items-center">
                                 <div class="col-md-6">
-                                    <p class="mb-1">Total Persen: <span class="totalPersen fw-bold text-primary">0</span>
-                                        %</p>
+                                    <p class="mb-1">Total Persen: <span class="totalPersen fw-bold text-primary">0</span>%
+                                    </p>
                                     <p class="mb-0">Total Terbagi: <span class="fw-bold text-success">Rp <span
                                                 class="totalNominal">0</span></span></p>
                                 </div>
                                 <div class="col-md-6 text-end">
-                                    <h4 class="mb-0">Sisa Alokasi: <span class="sisaNominal fw-bold text-danger">0</span>
-                                    </h4>
+                                    <h4 class="mb-0">Sisa Alokasi: <span
+                                            class="sisaNominal fw-bold text-danger">0</span></h4>
                                 </div>
                             </div>
                         </div>
@@ -250,8 +298,10 @@
         @endforeach
     @endif
 
-    {{-- Script Kalkulasi --}}
+    {{-- Script --}}
     <script>
+        const isAdmin = @json(auth()->user()->role === 'admin');
+
         function formatRupiah(angka) {
             return new Intl.NumberFormat('id-ID').format(angka);
         }
@@ -293,7 +343,7 @@
                         if (btnSubmit) btnSubmit.disabled = false;
                     } else {
                         sisaNominalText.classList.replace('text-success', 'text-danger');
-                        if (btnSubmit) btnSubmit.disabled = true;
+                        if (btnSubmit) btnSubmit.disabled = !isAdmin;
                     }
                 }
 
@@ -323,11 +373,50 @@
                     formSubmit.addEventListener('submit', function(e) {
                         if (!confirm(
                                 'Apakah Anda yakin pembagian sudah pas? Sisa dana Rp 0. Data yang disubmit TIDAK BISA diubah lagi.'
-                            )) {
+                                )) {
                             e.preventDefault();
                         }
                     });
                 }
+            });
+
+            // Hapus baris draft (pegawai yang sudah pindah) - via AJAX, TIDAK pakai nested form
+            document.querySelectorAll('.btn-hapus-draft').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    const id = this.dataset.id;
+                    const nama = this.dataset.nama;
+                    const nominal = this.dataset.nominal;
+
+                    if (!confirm(
+                            `Hapus baris ${nama} dari draft ini? Nominal Rp ${nominal} akan bebas untuk dialokasikan ke pegawai lain.`
+                            )) {
+                        return;
+                    }
+
+                    this.disabled = true;
+
+                    fetch(`/jasa-pegawai/${id}/hapus-draft`, {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                'Accept': 'application/json'
+                            }
+                        })
+                        .then(res => res.json())
+                        .then(res => {
+                            if (res.success) {
+                                location.reload();
+                            } else {
+                                alert(res.message || 'Gagal menghapus.');
+                                this.disabled = false;
+                            }
+                        })
+                        .catch(() => {
+                            alert('Terjadi kesalahan saat menghapus.');
+                            this.disabled = false;
+                        });
+                });
             });
         });
     </script>
