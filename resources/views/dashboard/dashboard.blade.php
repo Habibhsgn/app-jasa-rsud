@@ -73,7 +73,7 @@
                             </button>
                         </div>
 
-                        <div id="p{{ md5($periode) }}" class="collapse">
+                        <div id="p{{ md5($periode) }}" class="collapse @if($loop->iteration == 1) show @endif">
                             <div class="table-responsive">
 
                                 <table class="table table-hover my-0">
