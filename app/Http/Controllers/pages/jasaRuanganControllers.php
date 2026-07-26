@@ -27,7 +27,7 @@ class jasaRuanganControllers extends Controller
         // =========================
         // ROLE FILTERING
         // =========================
-        switch ($user->role) {
+        switch ($user->role?->code) {
             case 'karu':
             case 'koordinator_karu':
                 $query->where('ruangan_id', $user->ruangan_id);
@@ -175,7 +175,7 @@ class jasaRuanganControllers extends Controller
             ], 404);
         }
 
-        if (Auth::user()->role !== 'admin') {
+        if (Auth::user()->role?->code !== 'admin') {
             return response()->json([
                 'success' => false,
                 'message' => 'Hanya admin yang boleh menghapus baris ini.'

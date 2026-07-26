@@ -36,7 +36,7 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | DASHBOARD (ALL ROLE)
+    | DASHBOARD (ALL ROLE — tidak perlu permission, siapa saja yang login boleh)
     |--------------------------------------------------------------------------
     */
     Route::get('/dashboard', [dashboardControllers::class, 'index'])
@@ -45,15 +45,14 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | KARU + KOORDINATOR KARU (READ ONLY AREA)
+    | ISI JASA RUANGAN (karu, koordinator_karu, admin)
     |--------------------------------------------------------------------------
     */
-    Route::middleware(['role:karu,koordinator_karu,admin'])->group(function () {
+    Route::middleware(['permission:karu.jasa'])->group(function () {
 
         Route::get('/isi-jasa', [jasaRuanganControllers::class, 'index'])
             ->name('karu.jasa');
 
-        // Isi Jasa
         Route::post('/isi-jasa/store', [jasaRuanganControllers::class, 'store'])
             ->name('karu.jasa.store');
 
@@ -65,14 +64,12 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
     });
 
 
-
-
     /*
     |--------------------------------------------------------------------------
-    | MASTER INPUT JASA (ADMIN ONLY)
+    | MASTER INPUT JASA (admin)
     |--------------------------------------------------------------------------
     */
-    Route::middleware(['role:admin'])->group(function () {
+    Route::middleware(['permission:jasa.index'])->group(function () {
 
         Route::get('/jasa', [inputJasaControllers::class, 'index'])
             ->name('jasa.index');
@@ -93,10 +90,10 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | LAPORAN (ADMIN ONLY)
+    | LAPORAN (admin)
     |--------------------------------------------------------------------------
     */
-    Route::middleware(['role:admin'])->group(function () {
+    Route::middleware(['permission:laporan.jasa.index'])->group(function () {
 
         Route::get('/laporan/jasa', [laporanJasaControllers::class, 'index'])
             ->name('laporan.jasa.index');
@@ -108,10 +105,10 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | MASTER RUANGAN (ADMIN ONLY)
+    | MASTER RUANGAN (admin)
     |--------------------------------------------------------------------------
     */
-    Route::middleware(['role:admin'])->group(function () {
+    Route::middleware(['permission:master.ruangan.index'])->group(function () {
 
         Route::get('/master-ruangan', [masterRuanganControllers::class, 'index'])
             ->name('master.ruangan.index');
@@ -129,7 +126,12 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
             ->name('master.ruangan.toggleStatus');
     });
 
-    Route::middleware(['role:admin,manajemen'])->group(function () {
+    /*
+    |--------------------------------------------------------------------------
+    | VERIFIKASI / REVIEW INDEX SCORING (admin, manajemen)
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['permission:management.index.scoring.index'])->group(function () {
 
         Route::get('/review-index-scoring', [ManagementIndexScoringControllers::class, 'index'])
             ->name('management.index.scoring.index');
@@ -137,16 +139,20 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
         Route::get('/review-index-scoring/{periode}', [ManagementIndexScoringControllers::class, 'show'])
             ->name('management.index.scoring.show');
 
-        Route::post('/review-index-scoring/{periode}/approve', [ManagementIndexScoringControllers::class, 'approve'])
+        Route::post('/review-index-scoring/{periode}/{ruangan}/approve', [ManagementIndexScoringControllers::class, 'approve'])
             ->name('management.index.scoring.approve');
 
-        Route::post('/review-index-scoring/{periode}/revisi', [ManagementIndexScoringControllers::class, 'revisi'])
+        Route::post('/review-index-scoring/{periode}/{ruangan}/revisi', [ManagementIndexScoringControllers::class, 'revisi'])
             ->name('management.index.scoring.revisi');
     });
 
 
-
-    Route::middleware(['role:karu,koordinator_karu,admin'])->group(function () {
+    /*
+    |--------------------------------------------------------------------------
+    | INDEX SCORING (karu, koordinator_karu, admin)
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['permission:index.scoring.index'])->group(function () {
 
         Route::get('/index-scoring', [IndexScoringControllers::class, 'index'])
             ->name('index.scoring.index');
@@ -166,12 +172,14 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
         Route::delete('/index-scoring/{id}', [IndexScoringControllers::class, 'destroy'])
             ->name('index.scoring.destroy');
     });
+
+
     /*
     |--------------------------------------------------------------------------
-    | USER MANAGEMENT (ADMIN ONLY)
+    | USER MANAGEMENT (admin)
     |--------------------------------------------------------------------------
     */
-    Route::middleware(['role:admin'])->group(function () {
+    Route::middleware(['permission:users.index'])->group(function () {
 
         Route::get('/users-management', [userManagementControllers::class, 'index'])
             ->name('users.index');
@@ -186,67 +194,89 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
-    | PEGAWAI (ADMIN + KARU READ)
+    | MASTER PEGAWAI
+    |--------------------------------------------------------------------------
+    | NOTE: sebelumnya grup ini TIDAK punya middleware role sama sekali —
+    | siapa saja yang login (termasuk role apa pun) bisa store/update/delete.
+    | Saya kunci ke permission 'pegawai.index'. Kalau memang mau karu cuma
+    | bisa BACA (index) tapi tidak boleh store/update/delete, kabari saya,
+    | nanti dipecah jadi permission terpisah (pegawai.store, pegawai.update, dst).
     |--------------------------------------------------------------------------
     */
-    // Route::get('/pegawai', [pegawaiControllers::class, 'index'])->name('pegawai.index');
-    // Route::get('/pegawai/create', [pegawaiControllers::class, 'create'])->name('pegawai.create');
-    // Route::post('/pegawai', [pegawaiControllers::class, 'store'])->name('pegawai.store');
-    // Route::get('/pegawai/{id}/edit', [pegawaiControllers::class, 'edit'])->name('pegawai.edit');
-    // Route::put('/pegawai/{id}', [pegawaiControllers::class, 'update'])->name('pegawai.update');
-    // Route::delete('/pegawai/{id}', [pegawaiControllers::class, 'destroy'])->name('pegawai.destroy');
+    Route::middleware(['permission:pegawai.index'])->group(function () {
 
-    // ===============================
-    // MASTER PEGAWAI
-    // ===============================
+        Route::get('/pegawai', [pegawaiControllers::class, 'index'])
+            ->name('pegawai.index');
 
-    Route::get('/pegawai', [pegawaiControllers::class, 'index'])
-        ->name('pegawai.index');
+        Route::post('/pegawai', [pegawaiControllers::class, 'store'])
+            ->name('pegawai.store');
 
-    Route::post('/pegawai', [pegawaiControllers::class, 'store'])
-        ->name('pegawai.store');
+        Route::put('/pegawai/{id}', [pegawaiControllers::class, 'update'])
+            ->name('pegawai.update');
 
-    Route::put('/pegawai/{id}', [pegawaiControllers::class, 'update'])
-        ->name('pegawai.update');
+        Route::delete('/pegawai/{id}', [pegawaiControllers::class, 'destroy'])
+            ->name('pegawai.destroy');
 
-    Route::delete('/pegawai/{id}', [pegawaiControllers::class, 'destroy'])
-        ->name('pegawai.destroy');
+        // IMPORT EXCEL
+        Route::post('/pegawai/import', [pegawaiControllers::class, 'import'])
+            ->name('pegawai.import');
 
-    // IMPORT EXCEL
-    Route::post('/pegawai/import', [pegawaiControllers::class, 'import'])
-        ->name('pegawai.import');
+        Route::get('/pegawai/export', [pegawaiControllers::class, 'export'])
+            ->name('pegawai.export');
 
-    Route::get('/pegawai/export', [pegawaiControllers::class, 'export'])
-        ->name('pegawai.export');
+        Route::post(
+            '/pegawai/{id}/id-petugas',
+            [pegawaiControllers::class, 'updateIdPetugas']
+        )->name('pegawai.update-id-petugas');
 
-    Route::post(
-        '/pegawai/{id}/id-petugas',
-        [pegawaiControllers::class, 'updateIdPetugas']
-    )->name('pegawai.update-id-petugas');
+        Route::post('/ruangan/{id}/resiko-emergency', [pegawaiControllers::class, 'updateRuanganResikoEmergency'])
+            ->name('ruangan.updateResikoEmergency');
 
-    Route::post('/ruangan/{id}/resiko-emergency', [pegawaiControllers::class, 'updateRuanganResikoEmergency'])
-        ->name('ruangan.updateResikoEmergency');
+        Route::post('/pegawai/{id}/pindah', [pegawaiControllers::class, 'ajukanPindah'])
+            ->name('pegawai.pindah');
 
-    Route::post('/pegawai/{id}/pindah', [pegawaiControllers::class, 'ajukanPindah'])->name('pegawai.pindah');
-    Route::post('/pegawai/{id}/pindah/batal', [pegawaiControllers::class, 'batalkanPindah'])->name('pegawai.pindah.batal');
-
-    Route::get('/ruang-tunggu', [pegawaiControllers::class, 'ruangTunggu'])->name('ruang-tunggu.index');
-    Route::post('/ruang-tunggu/{id}/terima', [pegawaiControllers::class, 'terimaPindah'])->name('ruang-tunggu.terima');
-    Route::post('/ruang-tunggu/{id}/tolak', [pegawaiControllers::class, 'tolakPindah'])->name('ruang-tunggu.tolak');
+        Route::post('/pegawai/{id}/pindah/batal', [pegawaiControllers::class, 'batalkanPindah'])
+            ->name('pegawai.pindah.batal');
+    });
 
     /*
     |--------------------------------------------------------------------------
-    | INA-CBG & SETTING
+    | RUANG TUNGGU PINDAH PEGAWAI
     |--------------------------------------------------------------------------
     */
-    Route::prefix('inacbg')->name('inacbg.')->group(function () {
+    Route::middleware(['permission:ruang-tunggu.index'])->group(function () {
+
+        Route::get('/ruang-tunggu', [pegawaiControllers::class, 'ruangTunggu'])
+            ->name('ruang-tunggu.index');
+
+        Route::post('/ruang-tunggu/{id}/terima', [pegawaiControllers::class, 'terimaPindah'])
+            ->name('ruang-tunggu.terima');
+
+        Route::post('/ruang-tunggu/{id}/tolak', [pegawaiControllers::class, 'tolakPindah'])
+            ->name('ruang-tunggu.tolak');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | INA-CBG
+    |--------------------------------------------------------------------------
+    | NOTE: sama seperti Pegawai — sebelumnya tanpa middleware role sama
+    | sekali. Sekarang dikunci ke permission 'inacbg.index'.
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['permission:inacbg.index'])->prefix('inacbg')->name('inacbg.')->group(function () {
         Route::get('/', [InacbgController::class, 'index'])->name('index');
         Route::post('/import', [InacbgController::class, 'import'])->name('import');
         Route::get('/{inacbgClaim}', [InacbgController::class, 'show'])->name('show');
         Route::put('/{inacbgClaim}/status', [InacbgController::class, 'updateStatus'])->name('update-status');
     });
 
-    Route::middleware(['role:admin'])->prefix('setting')->name('setting.')->group(function () {
+    /*
+    |--------------------------------------------------------------------------
+    | SETTING (admin)
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['permission:setting.index'])->prefix('setting')->name('setting.')->group(function () {
         Route::get('/', [SettingController::class, 'index'])->name('index');
         Route::post('/', [SettingController::class, 'update'])->name('update');
     });
@@ -271,3 +301,4 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__ . '/auth.php';
+require __DIR__ . '/rbac.php'; 

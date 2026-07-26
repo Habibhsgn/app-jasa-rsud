@@ -12,47 +12,49 @@ use Illuminate\Support\Carbon;
 class ManagementIndexScoringControllers extends Controller
 {
     /**
-     * Daftar periode yang menunggu review manajemen (status = submit),
-     * plus riwayat periode yang sudah diproses (selesai/revisi) untuk referensi.
+     * Daftar PERIODE (bulan) yang perlu direview.
+     *
+     * - "Menunggu Review": periode yang MASIH punya minimal 1 ruangan berstatus 'submit'.
+     * - "Riwayat": periode yang SEMUA ruangannya sudah selesai diproses (tidak ada lagi
+     *   yang 'submit') dan minimal 1 ruangan berstatus 'selesai' atau 'revisi'.
+     *
+     * Detail siapa-approve-siapa per ruangan ditangani di halaman show().
      */
     public function index()
     {
-        $periodeMenunggu = IndexScoring::where('status_pengajuan', 'submit')
-            ->distinct()
-            ->orderByDesc('periode_pengajuan')
-            ->pluck('periode_pengajuan')
-            ->map(fn ($p) => Carbon::parse($p)->format('Y-m'));
+        $rows = IndexScoring::select('periode_pengajuan', 'ruangan_id', 'status_pengajuan')->get();
 
-        $periodeRiwayat = IndexScoring::whereIn('status_pengajuan', ['selesai', 'revisi'])
-            ->distinct()
-            ->orderByDesc('periode_pengajuan')
-            ->pluck('periode_pengajuan')
-            ->map(fn ($p) => Carbon::parse($p)->format('Y-m'));
+        $grouped = $rows->groupBy(fn($r) => Carbon::parse($r->periode_pengajuan)->format('Y-m'));
 
-        $summary = function ($periodeList) {
-            return $periodeList->map(function ($periodeStr) {
-                $periode = Carbon::createFromFormat('Y-m', $periodeStr)->startOfMonth();
+        $items = $grouped->map(function ($group, $periodeStr) {
+            $periode = Carbon::createFromFormat('Y-m', $periodeStr)->startOfMonth();
+            $statuses = $group->pluck('status_pengajuan');
 
-                $rows = IndexScoring::where('periode_pengajuan', $periode)->get();
+            return (object) [
+                'periode' => $periodeStr,
+                'periode_label' => $periode->translatedFormat('F Y'),
+                'ada_menunggu' => $statuses->contains('submit'),
+                'ada_riwayat' => $statuses->contains(fn($s) => in_array($s, ['selesai', 'revisi'])),
+                'jumlah_ruangan' => $group->pluck('ruangan_id')->unique()->count(),
+                'jumlah_pegawai' => $group->count(),
+            ];
+        })->values();
 
-                return (object) [
-                    'periode' => $periodeStr,
-                    'periode_label' => $periode->translatedFormat('F Y'),
-                    'status' => optional($rows->first())->status_pengajuan,
-                    'jumlah_ruangan' => $rows->pluck('ruangan_id')->unique()->count(),
-                    'jumlah_pegawai' => $rows->count(),
-                ];
-            });
-        };
+        $menunggu = $items->filter(fn($i) => $i->ada_menunggu)
+            ->sortByDesc('periode')
+            ->values();
 
-        $menunggu = $summary($periodeMenunggu);
-        $riwayat = $summary($periodeRiwayat);
+        // Periode hanya masuk "riwayat" kalau sudah tidak ada lagi ruangan yang menunggu review.
+        $riwayat = $items->filter(fn($i) => $i->ada_riwayat && !$i->ada_menunggu)
+            ->sortByDesc('periode')
+            ->values();
 
         return view('pages.management.IndexScoringReview', compact('menunggu', 'riwayat'));
     }
 
     /**
-     * Detail 1 periode untuk direview: semua ruangan & pegawai, read-only.
+     * Detail 1 periode: semua ruangan ditampilkan, masing-masing dengan
+     * status, catatan revisi, dan tombol Setujui/Revisi SENDIRI-SENDIRI.
      */
     public function show(string $periode)
     {
@@ -63,9 +65,6 @@ class ManagementIndexScoringControllers extends Controller
         if ($scoring->isEmpty()) {
             abort(404, 'Data pengajuan untuk periode ini tidak ditemukan.');
         }
-
-        $statusPengajuan = optional($scoring->first())->status_pengajuan;
-        $catatanRevisi = optional($scoring->first())->catatan_revisi;
 
         $ruanganIds = $scoring->pluck('ruangan_id')->unique();
 
@@ -81,17 +80,22 @@ class ManagementIndexScoringControllers extends Controller
             ->get()
             ->keyBy('id');
 
-        $scoringByPegawai = $scoring->keyBy('pegawai_id');
+        $scoringByRuangan = $scoring->groupBy('ruangan_id');
 
-        $ruanganData = $ruangans->map(function ($ruangan) use ($scoring, $pegawaiMaster, $scoringByPegawai) {
+        $ruanganData = $ruangans->map(function ($ruangan) use ($scoringByRuangan, $pegawaiMaster) {
 
-            $pegawaiRuangan = $scoring->where('ruangan_id', $ruangan->id);
+            $rows = $scoringByRuangan->get($ruangan->id, collect());
+            $statusRuangan = optional($rows->first())->status_pengajuan;
+            $catatanRevisi = optional($rows->first())->catatan_revisi;
 
             return (object) [
                 'id' => $ruangan->id,
                 'nama_ruangan' => $ruangan->nama_ruangan,
+                'status' => $statusRuangan,
+                'catatan_revisi' => $catatanRevisi,
+                'bisa_direview' => $statusRuangan === 'submit',
 
-                'pegawai' => $pegawaiRuangan->map(function ($row) use ($pegawaiMaster) {
+                'pegawai' => $rows->map(function ($row) use ($pegawaiMaster) {
 
                     $master = $pegawaiMaster->get($row->pegawai_id);
 
@@ -110,8 +114,8 @@ class ManagementIndexScoringControllers extends Controller
                         'telat' => $row->telat,
                         'sikap' => $row->sikap,
                         'jumlah' => $row->jumlah,
-                        'jumlah_akhir' => $row->jumlah_akhir,
                         'keterangan' => $row->keterangan,
+                        'jumlah_akhir' => $row->jumlah_akhir,
                     ];
                 })->values(),
             ];
@@ -120,9 +124,6 @@ class ManagementIndexScoringControllers extends Controller
         $periodeInfo = (object) [
             'periode' => $periode,
             'periode_label' => $periodeDate->translatedFormat('F Y'),
-            'status' => $statusPengajuan,
-            'catatan_revisi' => $catatanRevisi,
-            'bisa_direview' => $statusPengajuan === 'submit',
         ];
 
         return view('pages.management.IndexScoringReviewDetail', [
@@ -132,13 +133,15 @@ class ManagementIndexScoringControllers extends Controller
     }
 
     /**
-     * Setujui periode -> status jadi "selesai", terkunci permanen.
+     * Setujui 1 ruangan pada 1 periode -> status jadi "selesai".
+     * Ruangan lain di periode yang sama TIDAK terpengaruh.
      */
-    public function approve(string $periode)
+    public function approve(string $periode, int $ruangan)
     {
         $periodeDate = Carbon::createFromFormat('Y-m', $periode)->startOfMonth();
 
         $updated = IndexScoring::where('periode_pengajuan', $periodeDate)
+            ->where('ruangan_id', $ruangan)
             ->where('status_pengajuan', 'submit')
             ->update([
                 'status_pengajuan' => 'selesai',
@@ -149,19 +152,20 @@ class ManagementIndexScoringControllers extends Controller
 
         if ($updated === 0) {
             return redirect()
-                ->route('management.index.scoring.index')
-                ->with('error', 'Periode ini tidak dalam status menunggu review, atau sudah diproses pihak lain.');
+                ->route('management.index.scoring.show', $periode)
+                ->with('error', 'Ruangan ini tidak dalam status menunggu review, atau sudah diproses pihak lain.');
         }
 
         return redirect()
-            ->route('management.index.scoring.index')
-            ->with('success', 'Pengajuan periode ' . $periodeDate->format('F Y') . ' telah disetujui.');
+            ->route('management.index.scoring.show', $periode)
+            ->with('success', 'Pengajuan ruangan telah disetujui.');
     }
 
     /**
-     * Kembalikan periode untuk revisi -> status jadi "revisi", wajib sertakan catatan.
+     * Kembalikan 1 ruangan pada 1 periode untuk revisi -> status jadi "revisi".
+     * Ruangan lain di periode yang sama TIDAK terpengaruh.
      */
-    public function revisi(Request $request, string $periode)
+    public function revisi(Request $request, string $periode, int $ruangan)
     {
         $request->validate([
             'catatan_revisi' => ['required', 'string', 'min:5'],
@@ -173,6 +177,7 @@ class ManagementIndexScoringControllers extends Controller
         $periodeDate = Carbon::createFromFormat('Y-m', $periode)->startOfMonth();
 
         $updated = IndexScoring::where('periode_pengajuan', $periodeDate)
+            ->where('ruangan_id', $ruangan)
             ->where('status_pengajuan', 'submit')
             ->update([
                 'status_pengajuan' => 'revisi',
@@ -183,12 +188,12 @@ class ManagementIndexScoringControllers extends Controller
 
         if ($updated === 0) {
             return redirect()
-                ->route('management.index.scoring.index')
-                ->with('error', 'Periode ini tidak dalam status menunggu review, atau sudah diproses pihak lain.');
+                ->route('management.index.scoring.show', $periode)
+                ->with('error', 'Ruangan ini tidak dalam status menunggu review, atau sudah diproses pihak lain.');
         }
 
         return redirect()
-            ->route('management.index.scoring.index')
-            ->with('success', 'Pengajuan periode ' . $periodeDate->format('F Y') . ' dikembalikan untuk revisi.');
+            ->route('management.index.scoring.show', $periode)
+            ->with('success', 'Pengajuan ruangan dikembalikan untuk revisi.');
     }
 }

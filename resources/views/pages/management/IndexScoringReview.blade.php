@@ -68,7 +68,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>Periode</th>
-                            <th>Status</th>
+                            <th>Jumlah Ruangan</th>
                             <th class="text-end">Aksi</th>
                         </tr>
                     </thead>
@@ -76,13 +76,7 @@
                         @foreach ($riwayat as $p)
                             <tr>
                                 <td>{{ $p->periode_label }}</td>
-                                <td>
-                                    @if ($p->status == 'selesai')
-                                        <span class="badge bg-primary">Selesai</span>
-                                    @elseif($p->status == 'revisi')
-                                        <span class="badge bg-danger">Revisi</span>
-                                    @endif
-                                </td>
+                                <td>{{ $p->jumlah_ruangan }}</td>
                                 <td class="text-end">
                                     <a href="{{ route('management.index.scoring.show', $p->periode) }}"
                                         class="btn btn-sm btn-outline-secondary">

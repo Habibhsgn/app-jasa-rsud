@@ -7,6 +7,10 @@
 
         <h1 class="h3 mb-3">Manajemen <strong>User</strong></h1>
 
+        @if (session('success'))
+            <div class="alert alert-success">{{ session('success') }}</div>
+        @endif
+
         <div class="row">
             <div class="col-12">
                 <div class="card">
@@ -31,6 +35,10 @@
                                 </thead>
                                 <tbody>
                                     @forelse($users as $user)
+                                        @php
+                                            $userRoleCode = $user->role?->code;
+                                            $isProtectedAdmin = $userRoleCode === 'admin';
+                                        @endphp
                                         <tr>
                                             <td>
                                                 <div class="d-flex align-items-center">
@@ -42,8 +50,8 @@
                                             </td>
                                             <td class="d-none d-xl-table-cell">{{ $user->email }}</td>
                                             <td>
-                                                <span class="badge {{ $user->role == 'admin' ? 'bg-primary' : 'bg-info' }}">
-                                                    {{ strtoupper($user->role) }}
+                                                <span class="badge {{ $isProtectedAdmin ? 'bg-primary' : 'bg-info' }}">
+                                                    {{ $user->role ? strtoupper($user->role->code) : '-' }}
                                                 </span>
                                             </td>
                                             <td class="d-none d-md-table-cell">
@@ -57,7 +65,7 @@
                                                 @endif
                                             </td>
                                             <td class="text-end">
-                                                @if ($user->role !== 'admin')
+                                                @unless ($isProtectedAdmin)
                                                     <form action="{{ route('users.toggle', $user->id) }}" method="POST"
                                                         class="d-inline">
                                                         @csrf
@@ -75,35 +83,32 @@
                                                     </form>
                                                 @else
                                                     <span class="text-muted">Protected</span>
-                                                @endif
+                                                @endunless
                                             </td>
                                             <td>
-                                                @if ($user->role !== 'admin')
-                                                    <form action="{{ route('users.updateRole', $user->id) }}"
-                                                        method="POST">
+                                                @unless ($isProtectedAdmin)
+                                                    <form action="{{ route('users.updateRole', $user->id) }}" method="POST">
                                                         @csrf
                                                         @method('PATCH')
 
                                                         <select name="role" class="form-select form-select-sm"
                                                             onchange="this.form.submit()">
-                                                            <option value="admin"
-                                                                {{ $user->role == 'admin' ? 'selected' : '' }}>ADMIN
-                                                            </option>
-                                                            <option value="karu"
-                                                                {{ $user->role == 'karu' ? 'selected' : '' }}>KARU</option>
-                                                            <option value="koordinator_karu"
-                                                                {{ $user->role == 'koordinator_karu' ? 'selected' : '' }}>
-                                                                KOORDINATOR KARU</option>
+                                                            @foreach ($roles as $role)
+                                                                <option value="{{ $role->code }}"
+                                                                    {{ $userRoleCode === $role->code ? 'selected' : '' }}>
+                                                                    {{ strtoupper(str_replace('_', ' ', $role->code)) }}
+                                                                </option>
+                                                            @endforeach
                                                         </select>
                                                     </form>
                                                 @else
                                                     <span class="badge bg-dark">LOCKED</span>
-                                                @endif
+                                                @endunless
                                             </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="6" class="text-center text-muted">Tidak ada data user lain
+                                            <td colspan="7" class="text-center text-muted">Tidak ada data user lain
                                                 ditemukan.</td>
                                         </tr>
                                     @endforelse

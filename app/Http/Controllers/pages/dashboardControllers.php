@@ -29,7 +29,7 @@ class dashboardControllers extends Controller
         // ROLE FILTER FIX
         // =========================
 
-        if ($user->role === 'koordinator_karu') {
+        if ($user->role?->code === 'koordinator_karu') {
 
             $queryJasa->where('ruangan_id', $user->ruangan_id);
             $pegawaiQuery->where('ruangan_id', $user->ruangan_id);
@@ -37,7 +37,7 @@ class dashboardControllers extends Controller
             $labelPegawai = "Pegawai di Ruangan Anda";
         }
 
-        elseif ($user->role === 'karu') {
+        elseif ($user->role?->code === 'karu') {
 
             // 🔥 KOORDINATOR = LIHAT SEMUA RUANGAN (TIDAK DIFILTER)
             $labelPegawai = "Semua Pegawai (Koordinator)";
@@ -72,7 +72,7 @@ class dashboardControllers extends Controller
             'totalProses' => $totalProses,
             'totalVerifikasi' => $totalVerifikasi,
             'totalSelesai' => $totalSelesai,
-            'koordinator' => $user->role === 'karu'
+            'koordinator' => $user->role?->code === 'karu'
         ]);
     }
 }

@@ -32,7 +32,7 @@ class pegawaiControllers extends Controller
         $pegawaiQuery = Pegawai::with('ruangan:id,nama_ruangan,resiko,emergency')
             ->orderBy('nama');
 
-        if (in_array($user->role, ['karu', 'koordinator_karu'])) {
+        if (in_array($user->role?->code, ['karu', 'koordinator_karu'])) {
             $ruanganQuery->where('id', $user->ruangan_id);
             $pegawaiQuery->where('ruangan_id', $user->ruangan_id);
         }
@@ -228,8 +228,8 @@ class pegawaiControllers extends Controller
         // ==========================
         // OTORISASI
         // ==========================
-        $isAdmin = $user->role === 'admin';
-        $isKaruRuanganAsal = in_array($user->role, ['karu', 'koordinator_karu'])
+        $isAdmin = $user->role?->code === 'admin';
+        $isKaruRuanganAsal = in_array($user->role?->code, ['karu', 'koordinator_karu'])
             && $user->ruangan_id == $pegawai->ruangan_id;
 
         if (!$isAdmin && !$isKaruRuanganAsal) {
@@ -305,7 +305,7 @@ class pegawaiControllers extends Controller
             ->where('status', 'pindah')
             ->orderBy('diajukan_at', 'desc');
 
-        if (in_array($user->role, ['karu', 'koordinator_karu'])) {
+        if (in_array($user->role?->code, ['karu', 'koordinator_karu'])) {
             $query->where('ruangan_tujuan_id', $user->ruangan_id);
         }
 
@@ -326,8 +326,8 @@ class pegawaiControllers extends Controller
             return back()->with('error', 'Pegawai ini tidak sedang dalam proses pindah.');
         }
 
-        $isAdmin = $user->role === 'admin';
-        $isKaruRuanganTujuan = in_array($user->role, ['karu', 'koordinator_karu'])
+        $isAdmin = $user->role?->code === 'admin';
+        $isKaruRuanganTujuan = in_array($user->role?->code, ['karu', 'koordinator_karu'])
             && $user->ruangan_id == $pegawai->ruangan_tujuan_id;
 
         if (!$isAdmin && !$isKaruRuanganTujuan) {
@@ -365,8 +365,8 @@ class pegawaiControllers extends Controller
             return back()->with('error', 'Pegawai ini tidak sedang dalam proses pindah.');
         }
 
-        $isAdmin = $user->role === 'admin';
-        $isKaruRuanganTujuan = in_array($user->role, ['karu', 'koordinator_karu'])
+        $isAdmin = $user->role?->code === 'admin';
+        $isKaruRuanganTujuan = in_array($user->role?->code, ['karu', 'koordinator_karu'])
             && $user->ruangan_id == $pegawai->ruangan_tujuan_id;
 
         if (!$isAdmin && !$isKaruRuanganTujuan) {
