@@ -79,7 +79,7 @@
         @foreach ($data as $item)
             @php
                 $isLocked = in_array($item->status, ['verifikasi', 'selesai']);
-                $isAdmin = auth()->user()->role === 'admin';
+                $isAdmin = auth()->user()->role?->code === 'admin';
             @endphp
 
             @if ($item->jasaPegawai->count() == 0)
@@ -300,7 +300,7 @@
 
     {{-- Script --}}
     <script>
-        const isAdmin = @json(auth()->user()->role === 'admin');
+        const isAdmin = @json(auth()->user()->role?->code === 'admin');
 
         function formatRupiah(angka) {
             return new Intl.NumberFormat('id-ID').format(angka);

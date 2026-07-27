@@ -28,7 +28,7 @@ class IndexScoringControllers extends Controller
             ->orderBy('periode_pengajuan')
             ->pluck('periode_pengajuan');
 
-        $data = $periodeList->map(fn ($p) => $this->buildPeriodeData(Carbon::parse($p)));
+        $data = $periodeList->map(fn($p) => $this->buildPeriodeData(Carbon::parse($p)));
 
         return view('pages.IndexScoring', compact('data'));
     }
@@ -59,28 +59,33 @@ class IndexScoringControllers extends Controller
             ->pluck('periode_pengajuan')
             ->push($periode->toDateString())
             ->unique()
-            ->sortBy(fn ($p) => Carbon::parse($p))
+            ->sortBy(fn($p) => Carbon::parse($p))
             ->values();
 
-        $data = $periodeList->map(fn ($p) => $this->buildPeriodeData(Carbon::parse($p)));
+        $data = $periodeList->map(fn($p) => $this->buildPeriodeData(Carbon::parse($p)));
 
         return view('pages.IndexScoring', compact('data'));
     }
 
     /**
      * Susun data 1 periode: ruangan -> pegawai, dengan draft (jika ada) di-overlay ke data master.
+     *
+     * PENTING: status_pengajuan, disable_input, dan catatan_revisi sekarang dihitung
+     * PER RUANGAN (bukan per periode), karena tiap ruangan submit form-nya sendiri-sendiri
+     * (lihat view: satu <form> per ruangan). Jadi ruangan A bisa berstatus "submit"
+     * sementara ruangan B masih "draft" di periode yang sama.
      */
     private function buildPeriodeData(Carbon $periode): object
     {
         $scoring = IndexScoring::where('periode_pengajuan', $periode)->get();
         $draftScoring = $scoring->keyBy('pegawai_id');
-        $statusPengajuan = optional($scoring->first())->status_pengajuan ?? 'draft';
-        $disableInput = in_array($statusPengajuan, $this->lockedStatuses);
-        $catatanRevisi = optional($scoring->first())->catatan_revisi;
+
+        // Kelompokkan record scoring per ruangan_id untuk menentukan status per ruangan
+        $scoringByRuangan = $scoring->groupBy('ruangan_id');
 
         $user = Auth::user();
 
-        if ($user->role == 'admin') {
+        if ($user->role?->code == 'admin') {
             $ruangans = DB::table('ruangan')
                 ->where('is_active', 1)
                 ->orderBy('nama_ruangan')
@@ -97,21 +102,68 @@ class IndexScoringControllers extends Controller
             ->get()
             ->groupBy('ruangan_id');
 
-        $ruanganData = $ruangans->map(function ($ruangan) use ($pegawaiByRuangan, $draftScoring) {
+        // Lookup pegawai by id untuk histori
+        $pegawaiMasterById = DB::table('pegawai')->get()->keyBy('id');
 
-            $pegawaiRuangan = $pegawaiByRuangan->get($ruangan->id, collect());
+        $ruanganData = $ruangans->map(function ($ruangan) use (
+            $pegawaiByRuangan,
+            $draftScoring,
+            $scoringByRuangan,
+            $pegawaiMasterById
+        ) {
 
-            return (object) [
+            // Data scoring khusus ruangan ini
+            $scoringRuanganIni = $scoringByRuangan->get($ruangan->id, collect());
 
-                'id' => $ruangan->id,
+            $statusRuangan = optional($scoringRuanganIni->first())->status_pengajuan ?? 'draft';
+            $disableInputRuangan = in_array($statusRuangan, $this->lockedStatuses);
+            $catatanRevisiRuangan = optional($scoringRuanganIni->first())->catatan_revisi;
 
-                'ruangan' => (object) [
-                    'nama_ruangan' => $ruangan->nama_ruangan,
-                    'risk' => $ruangan->resiko,
-                    'emergency' => $ruangan->emergency,
-                ],
+            if ($disableInputRuangan) {
 
-                'pegawai' => $pegawaiRuangan->map(function ($p) use ($ruangan, $draftScoring) {
+                // PERIODE SUDAH TERKUNCI
+                $pegawaiList = $scoringRuanganIni
+                    ->sortBy(function ($row) use ($pegawaiMasterById) {
+                        return optional($pegawaiMasterById->get($row->pegawai_id))->nama;
+                    })
+                    ->map(function ($row) use ($pegawaiMasterById) {
+
+                        $p = $pegawaiMasterById->get($row->pegawai_id);
+
+                        return (object) [
+
+                            'id' => $row->pegawai_id,
+                            'nama' => $p->nama ?? $row->pegawai_id,
+                            'id_petugas' => $p->id_petugas ?? null,
+
+                            'gaji_pokok' => (int) $row->gaji_pokok,
+                            'gaji_pokok_display' => number_format((int) $row->gaji_pokok, 0, ',', '.'),
+
+                            'jabatan' => $row->jabatan,
+                            'pendidikan_formal' => $row->pendidikan_formal,
+                            'pendidikan_non_formal' => $row->pendidikan_non_formal,
+
+                            // Tetap gunakan snapshot historis
+                            'risk' => $row->risk,
+                            'emergency' => $row->emergency,
+
+                            'cuti' => $row->cuti ?? 0,
+                            'izin' => $row->izin ?? 0,
+                            'tanpa_izin' => $row->tanpa_izin ?? 0,
+                            'telat' => $row->telat ?? 0,
+                            'sikap' => $row->sikap ?? 0,
+                            'jumlah' => $row->jumlah ?? 0,
+                            'jumlah_akhir' => $row->jumlah_akhir ?? 0,
+                            'keterangan' => $row->keterangan ?? null,
+                        ];
+                    })
+                    ->values();
+            } else {
+
+                // PERIODE BELUM TERKUNCI
+                $pegawaiRuangan = $pegawaiByRuangan->get($ruangan->id, collect());
+
+                $pegawaiList = $pegawaiRuangan->map(function ($p) use ($draftScoring) {
 
                     $draft = $draftScoring->get($p->id);
 
@@ -123,17 +175,17 @@ class IndexScoringControllers extends Controller
                         'nama' => $p->nama,
                         'id_petugas' => $p->id_petugas,
 
-                        // Nilai mentah untuk perhitungan/submit (integer, tanpa desimal)
                         'gaji_pokok' => (int) $gajiPokokRaw,
-
-                        // Nilai untuk ditampilkan di input (format ribuan, tanpa desimal)
                         'gaji_pokok_display' => number_format((int) $gajiPokokRaw, 0, ',', '.'),
 
                         'jabatan' => $draft->jabatan ?? $p->jabatan,
                         'pendidikan_formal' => $draft->pendidikan_formal ?? null,
                         'pendidikan_non_formal' => $draft->pendidikan_non_formal ?? $p->pendidikan_non_formal,
-                        'risk' => $draft->risk ?? $ruangan->resiko,
-                        'emergency' => $draft->emergency ?? $ruangan->emergency,
+
+                        // Ambil dari pegawai
+                        'risk' => $draft->risk ?? $p->risk,
+                        'emergency' => $draft->emergency ?? $p->emergency,
+
                         'cuti' => $draft->cuti ?? 0,
                         'izin' => $draft->izin ?? 0,
                         'tanpa_izin' => $draft->tanpa_izin ?? 0,
@@ -143,17 +195,28 @@ class IndexScoringControllers extends Controller
                         'jumlah_akhir' => $draft->jumlah_akhir ?? 0,
                         'keterangan' => $draft->keterangan ?? null,
                     ];
-                })->values(),
+                })->values();
+            }
 
+            return (object) [
+
+                'id' => $ruangan->id,
+
+                'ruangan' => (object) [
+                    'nama_ruangan' => $ruangan->nama_ruangan,
+                ],
+
+                'status_pengajuan' => $statusRuangan,
+                'disable_input' => $disableInputRuangan,
+                'catatan_revisi' => $catatanRevisiRuangan,
+
+                'pegawai' => $pegawaiList,
             ];
         });
 
         return (object) [
             'periode' => $periode->format('Y-m'),
             'periode_label' => $periode->translatedFormat('F Y'),
-            'status_pengajuan' => $statusPengajuan,
-            'disable_input' => $disableInput,
-            'catatan_revisi' => $catatanRevisi,
             'ruangans' => $ruanganData,
         ];
     }
@@ -161,24 +224,30 @@ class IndexScoringControllers extends Controller
     /**
      * Simpan draft / submit. Key updateOrCreate WAJIB menyertakan periode,
      * bukan hanya pegawai_id — kalau tidak, data lintas bulan akan saling menimpa.
+     *
+     * Lock-check sekarang berbasis (periode + ruangan_id), bukan seluruh periode,
+     * karena tiap ruangan submit form-nya sendiri-sendiri.
      */
     private function save(Request $request, string $status)
     {
         $request->validate([
             'periode' => ['required'],
+            'jasa_ruangan_id' => ['required'],
             'pegawai' => ['required', 'array'],
         ]);
 
         $periode = Carbon::createFromFormat('Y-m', $request->periode)->startOfMonth();
+        $ruanganId = $request->jasa_ruangan_id;
 
         $locked = IndexScoring::where('periode_pengajuan', $periode)
+            ->where('ruangan_id', $ruanganId)
             ->whereIn('status_pengajuan', $this->lockedStatuses)
             ->exists();
 
         if ($locked) {
             return redirect()
                 ->route('index.scoring.index')
-                ->with('error', 'Pengajuan periode ' . $periode->format('F Y') . ' sedang terkunci dan tidak bisa diubah.');
+                ->with('error', 'Pengajuan ruangan ini untuk periode ' . $periode->format('F Y') . ' sedang terkunci dan tidak bisa diubah.');
         }
 
         DB::transaction(function () use ($request, $status, $periode) {
@@ -242,11 +311,14 @@ class IndexScoringControllers extends Controller
 
     /**
      * Submit final — wajib semua baris (yang punya id_petugas) terisi lengkap.
+     * Divalidasi per ruangan (sesuai isi $request->pegawai, yang hanya berisi
+     * pegawai dari satu ruangan karena form sekarang per-ruangan).
      */
     public function submit(Request $request)
     {
         $request->validate([
             'periode' => ['required'],
+            'jasa_ruangan_id' => ['required'],
             'pegawai' => ['required', 'array'],
         ]);
 

@@ -27,29 +27,32 @@
         </div>
     @endif
 
-    <div class="mb-3">
-        @if ($periodeInfo->status == 'submit')
-            <span class="badge bg-success">Menunggu Review</span>
-        @elseif($periodeInfo->status == 'selesai')
-            <span class="badge bg-primary">Selesai</span>
-        @elseif($periodeInfo->status == 'revisi')
-            <span class="badge bg-danger">Revisi</span>
-        @endif
-    </div>
-
-    @if ($periodeInfo->status == 'revisi' && $periodeInfo->catatan_revisi)
-        <div class="alert alert-warning">
-            <strong>Catatan Revisi Sebelumnya:</strong><br>
-            {{ $periodeInfo->catatan_revisi }}
-        </div>
-    @endif
-
     @foreach ($ruangans as $item)
         <div class="card mb-4">
-            <div class="card-header bg-transparent border-bottom">
+            <div class="card-header d-flex justify-content-between align-items-center bg-transparent border-bottom">
                 <strong>{{ $item->nama_ruangan }}</strong>
+
+                <div>
+                    @if ($item->status == 'submit')
+                        <span class="badge bg-success">Menunggu Review</span>
+                    @elseif($item->status == 'selesai')
+                        <span class="badge bg-primary">Selesai</span>
+                    @elseif($item->status == 'revisi')
+                        <span class="badge bg-danger">Revisi</span>
+                    @elseif($item->status == 'draft')
+                        <span class="badge bg-warning">Draft (Belum Submit)</span>
+                    @endif
+                </div>
             </div>
+
             <div class="card-body">
+                @if ($item->status == 'revisi' && $item->catatan_revisi)
+                    <div class="alert alert-warning">
+                        <strong>Catatan Revisi Sebelumnya:</strong><br>
+                        {{ $item->catatan_revisi }}
+                    </div>
+                @endif
+
                 <div class="table-responsive">
                     <table class="table table-bordered table-sm align-middle text-center small mb-0">
                         <thead class="table-light">
@@ -98,57 +101,57 @@
                         </tbody>
                     </table>
                 </div>
+
+                {{-- Keputusan review: HANYA untuk ruangan ini --}}
+                @if ($item->bisa_direview)
+                    <div class="d-flex gap-2 mt-3 pt-3 border-top">
+                        {{-- Setujui ruangan ini saja --}}
+                        <form action="{{ route('management.index.scoring.approve', [$periodeInfo->periode, $item->id]) }}"
+                            method="POST"
+                            onsubmit="return confirm('Setujui pengajuan {{ $item->nama_ruangan }}? Data akan dikunci permanen.');">
+                            @csrf
+                            <button type="submit" class="btn btn-success px-4">
+                                <i data-feather="check-circle" class="me-1"></i>
+                                Setujui
+                            </button>
+                        </form>
+
+                        {{-- Minta revisi ruangan ini saja --}}
+                        <button type="button" class="btn btn-danger px-4" data-bs-toggle="modal"
+                            data-bs-target="#modalRevisi{{ $item->id }}">
+                            <i data-feather="rotate-ccw" class="me-1"></i>
+                            Minta Revisi
+                        </button>
+                    </div>
+
+                    {{-- Modal Catatan Revisi khusus ruangan ini --}}
+                    <div class="modal fade" id="modalRevisi{{ $item->id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <form
+                                action="{{ route('management.index.scoring.revisi', [$periodeInfo->periode, $item->id]) }}"
+                                method="POST">
+                                @csrf
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Catatan Revisi — {{ $item->nama_ruangan }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <label class="form-label fw-bold">Jelaskan bagian yang perlu diperbaiki</label>
+                                        <textarea name="catatan_revisi" class="form-control" rows="4" required
+                                            placeholder="Contoh: Data cuti pegawai A belum sesuai, mohon dicek ulang."></textarea>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary"
+                                            data-bs-dismiss="modal">Batal</button>
+                                        <button type="submit" class="btn btn-danger">Kirim Revisi</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
     @endforeach
-
-    @if ($periodeInfo->bisa_direview)
-        <div class="card border-0 shadow-sm">
-            <div class="card-body">
-                <h5 class="mb-3">Keputusan Review</h5>
-
-                <div class="d-flex gap-2">
-                    {{-- Setujui --}}
-                    <form action="{{ route('management.index.scoring.approve', $periodeInfo->periode) }}" method="POST"
-                        onsubmit="return confirm('Setujui pengajuan periode {{ $periodeInfo->periode_label }}? Data akan dikunci permanen dan tidak bisa direvisi lagi kecuali dikembalikan status revisi.');">
-                        @csrf
-                        <button type="submit" class="btn btn-success px-4">
-                            <i data-feather="check-circle" class="me-1"></i>
-                            Setujui
-                        </button>
-                    </form>
-
-                    {{-- Minta Revisi --}}
-                    <button type="button" class="btn btn-danger px-4" data-bs-toggle="modal" data-bs-target="#modalRevisi">
-                        <i data-feather="rotate-ccw" class="me-1"></i>
-                        Minta Revisi
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        {{-- Modal Catatan Revisi --}}
-        <div class="modal fade" id="modalRevisi" tabindex="-1">
-            <div class="modal-dialog">
-                <form action="{{ route('management.index.scoring.revisi', $periodeInfo->periode) }}" method="POST">
-                    @csrf
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Catatan Revisi — {{ $periodeInfo->periode_label }}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                        </div>
-                        <div class="modal-body">
-                            <label class="form-label fw-bold">Jelaskan bagian yang perlu diperbaiki</label>
-                            <textarea name="catatan_revisi" class="form-control" rows="4" required
-                                placeholder="Contoh: Data cuti pegawai A belum sesuai, mohon dicek ulang."></textarea>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                            <button type="submit" class="btn btn-danger">Kirim Revisi</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-    @endif
 @endsection

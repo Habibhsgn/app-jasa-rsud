@@ -9,13 +9,13 @@
         </h1>
 
         <div class="d-flex gap-2">
-            @if (in_array(auth()->user()->role, ['admin', 'karu', 'koordinator_karu']))
+            @if (in_array(auth()->user()->role?->code, ['admin', 'karu', 'koordinator_karu']))
                 <a href="{{ route('ruang-tunggu.index') }}" class="btn btn-outline-warning">
                     🚪 Ruang Tunggu
                 </a>
             @endif
 
-            @if (auth()->user()->role === 'admin')
+            @if (auth()->user()->role?->code === 'admin')
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalPegawai"
                     onclick="siapkanFormTambah()">
                     ➕ Tambah Pegawai
@@ -27,7 +27,7 @@
         </div>
     </div>
 
-    @if (auth()->user()->role === 'admin')
+    @if (auth()->user()->role?->code === 'admin')
         <div class="card border-primary mb-4">
             <div class="card-header bg-primary text-white">
                 <strong>Import Data Pegawai</strong>
@@ -128,7 +128,7 @@
                 <h5 class="mb-0 text-white fw-bold">🏥 RUANGAN: {{ $namaRuangan }}</h5>
 
                 <div class="d-flex align-items-center gap-2">
-                    @if ($r && auth()->user()->role === 'admin')
+                    @if ($r && auth()->user()->role?->code === 'admin')
                         <label class="text-white small mb-0">Resiko</label>
                         <select class="form-select form-select-sm select-resiko-emergency" style="width:70px"
                             data-id="{{ $r->id }}" data-field="resiko">
@@ -177,7 +177,7 @@
                                     <td class="fw-bold">{{ $p->nama }}</td>
 
                                     <td width="18%">
-                                        @if (in_array(auth()->user()->role, ['admin', 'karu', 'koordinator_karu']))
+                                        @if (in_array(auth()->user()->role?->code, ['admin', 'karu', 'koordinator_karu']))
                                             <input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="18"
                                                 class="form-control form-control-sm input-id-petugas"
                                                 data-id="{{ $p->id }}" value="{{ $p->id_petugas }}"
@@ -200,7 +200,7 @@
                                                 {{ $p->ruanganTujuan->nama_ruangan ?? '-' }}
                                             </span>
 
-                                            @if (auth()->user()->role === 'admin')
+                                            @if (auth()->user()->role?->code === 'admin')
                                                 <form action="{{ route('pegawai.pindah.batal', $p->id) }}" method="POST"
                                                     class="d-inline">
                                                     @csrf
@@ -213,7 +213,7 @@
                                                 <span class="text-muted small">Menunggu konfirmasi</span>
                                             @endif
                                         @else
-                                            @if (auth()->user()->role === 'admin')
+                                            @if (auth()->user()->role?->code === 'admin')
                                                 <button type="button" class="btn btn-warning btn-sm text-dark"
                                                     data-bs-toggle="modal" data-bs-target="#modalPegawai"
                                                     onclick="siapkanFormEdit(
@@ -243,7 +243,7 @@
                                                         Hapus
                                                     </button>
                                                 </form>
-                                            @elseif(in_array(auth()->user()->role, ['karu', 'koordinator_karu']))
+                                            @elseif(in_array(auth()->user()->role?->code, ['karu', 'koordinator_karu']))
                                                 <span class="badge bg-info d-block mb-1">Dapat Mengisi ID
                                                     Petugas</span>
 
@@ -273,7 +273,7 @@
     @endforelse
 
     {{-- MODAL TAMBAH/EDIT PEGAWAI --}}
-    @if (auth()->user()->role === 'admin')
+    @if (auth()->user()->role?->code === 'admin')
         <div class="modal fade" id="modalPegawai" tabindex="-1">
             <div class="modal-dialog">
                 <div class="modal-content">
@@ -343,7 +343,7 @@
     @endif
 
     {{-- MODAL PINDAH RUANGAN --}}
-    @if (in_array(auth()->user()->role, ['admin', 'karu', 'koordinator_karu']))
+    @if (in_array(auth()->user()->role?->code, ['admin', 'karu', 'koordinator_karu']))
         <div class="modal fade" id="modalPindah" tabindex="-1">
             <div class="modal-dialog">
                 <div class="modal-content">

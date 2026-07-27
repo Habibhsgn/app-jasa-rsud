@@ -11,6 +11,47 @@ use Illuminate\Support\Facades\DB;
 
 class inputJasaControllers extends Controller
 {
+    /**
+     * Daftar ruangan yang berhak menerima pembagian jasa.
+     * Ruangan di luar daftar ini TIDAK akan ikut dibagikan meskipun
+     * persen_default di Master Ruangan terisi > 0 (safety net).
+     *
+     * PENTING: sesuaikan value di sini dengan isi kolom nama ruangan
+     * (asumsi kolom: nama_ruangan) persis sama, termasuk huruf besar/kecil
+     * dan tanda kurung, karena whereIn() melakukan exact match.
+     */
+    private const RUANGAN_PENERIMA_JASA = [
+        'POLI PENYAKIT TERPADU',
+        'IGD',
+        'FIRDAUS',
+        'DARUSSALAM',
+        'RAUDAH',
+        'POLI GIGI',
+        'KAMAR OPERASI (OK)',
+        'PONEK',
+        'POLI PARU',
+        'MULTAZAM',
+        'AN NISA',
+        'AR RAYAN',
+        'PERINATOLOGI',
+        'MADINAH',
+        'VK (KAMAR BERSALIN)',
+        'ICU',
+        'ARAFAH',
+        'LABORATORIUM',
+        'INSTALASI TRANSFUSI DARAH (UTDRS)',
+        'RADIOLOGI',
+        'FARMASI',
+        'PENATA ANESTESI',
+        'GIZI',
+        'KESLING',
+        'IPSRS',
+        'INFORMASI & RUJUKAN',
+        'REKAM MEDIK',
+        'PEMULASARAN JENAZAH',
+        'CSSD',
+    ];
+
     public function index()
     {
         $ruangan = Ruangan::all();
@@ -48,7 +89,8 @@ class inputJasaControllers extends Controller
         DB::beginTransaction();
 
         try {
-            $ruangans = Ruangan::whereNotNull('persen_default')
+            $ruangans = Ruangan::whereIn('nama_ruangan', self::RUANGAN_PENERIMA_JASA)
+                ->whereNotNull('persen_default')
                 ->where('persen_default', '>', 0)
                 ->get();
 
@@ -58,7 +100,7 @@ class inputJasaControllers extends Controller
                 DB::rollBack();
                 return back()->with(
                     'error',
-                    'Gagal generate! Anda belum mengatur persentase di Master Ruangan.'
+                    'Gagal generate! Anda belum mengatur persentase di Master Ruangan untuk ruangan yang berhak menerima jasa.'
                 );
             }
 

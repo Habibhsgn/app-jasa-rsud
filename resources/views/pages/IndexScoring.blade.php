@@ -49,26 +49,12 @@
         </div>
     </div>
 
-    {{-- Loop Periode (setiap periode = kartu terpisah, dengan form sendiri) --}}
+    {{-- Loop Periode (setiap periode = kartu terpisah, dengan form sendiri per ruangan) --}}
     @if (isset($data) && $data->count())
         @foreach ($data as $periodeItem)
             <div class="mb-5">
 
-                <div class="d-flex align-items-center mb-2">
-                    <h5 class="mb-0 me-2">Periode: {{ $periodeItem->periode_label }}</h5>
-
-                    @if ($periodeItem->status_pengajuan == 'draft')
-                        <span class="badge bg-warning">Draft</span>
-                    @elseif($periodeItem->status_pengajuan == 'submit')
-                        <span class="badge bg-success">Sudah Submit</span>
-                    @elseif($periodeItem->status_pengajuan == 'verifikasi')
-                        <span class="badge bg-info text-dark">Menunggu Verifikasi</span>
-                    @elseif($periodeItem->status_pengajuan == 'revisi')
-                        <span class="badge bg-danger">Perlu Revisi — Silakan lengkapi &amp; submit ulang</span>
-                    @elseif($periodeItem->status_pengajuan == 'selesai')
-                        <span class="badge bg-primary">Selesai</span>
-                    @endif
-                </div>
+                <h5 class="mb-2">Periode: {{ $periodeItem->periode_label }}</h5>
 
                 @foreach ($periodeItem->ruangans as $item)
                     <div class="card mb-4">
@@ -77,6 +63,21 @@
                             <div>
                                 <span class="text-muted small">Ruangan:</span>
                                 <strong>{{ $item->ruangan->nama_ruangan ?? '-' }}</strong>
+                            </div>
+
+                            {{-- Badge status sekarang per-ruangan --}}
+                            <div>
+                                @if ($item->status_pengajuan == 'draft')
+                                    <span class="badge bg-warning">Draft</span>
+                                @elseif($item->status_pengajuan == 'submit')
+                                    <span class="badge bg-success">Sudah Submit</span>
+                                @elseif($item->status_pengajuan == 'verifikasi')
+                                    <span class="badge bg-info text-dark">Menunggu Verifikasi</span>
+                                @elseif($item->status_pengajuan == 'revisi')
+                                    <span class="badge bg-danger">Perlu Revisi — Silakan lengkapi &amp; submit ulang</span>
+                                @elseif($item->status_pengajuan == 'selesai')
+                                    <span class="badge bg-primary">Selesai</span>
+                                @endif
                             </div>
                         </div>
 
@@ -148,7 +149,7 @@
                                         <tbody>
                                             @foreach ($item->pegawai as $i => $p)
                                                 @php
-                                                    $rowDisabled = $periodeItem->disable_input || empty($p->id_petugas);
+                                                    $rowDisabled = $item->disable_input || empty($p->id_petugas);
                                                 @endphp
 
                                                 <tr>
@@ -249,7 +250,6 @@
                                                             value="{{ $p->pendidikan_non_formal }}" readonly>
                                                     </td>
 
-                                                    {{-- Gaji Pokok: tampil format ribuan tanpa desimal, disimpan sebagai integer murni --}}
                                                     <td>
                                                         <input type="text"
                                                             name="pegawai[{{ $p->id }}][gaji_pokok]"
@@ -344,29 +344,29 @@
                                     </table>
                                 </div>
 
-                                <div class="mt-3 p-3 bg-light border rounded shadow-sm">
-                                    {{-- Catatan Revisi dari Manajemen --}}
-                                    @if ($periodeItem->status_pengajuan == 'revisi' && $periodeItem->catatan_revisi)
-                                        <div class="alert alert-danger d-flex align-items-start gap-2 mb-3">
+                                {{-- Catatan Revisi: sekarang hanya tampil di ruangan yang statusnya 'revisi' --}}
+                                @if ($item->status_pengajuan == 'revisi' && $item->catatan_revisi)
+                                    <div class="mt-3 p-3 bg-light border rounded shadow-sm">
+                                        <div class="alert alert-danger d-flex align-items-start gap-2 mb-0">
                                             <i data-feather="alert-triangle" class="flex-shrink-0 mt-1"></i>
                                             <div>
                                                 <strong>Catatan Revisi dari Manajemen:</strong>
-                                                <p class="mb-0 text-danger">{{ $periodeItem->catatan_revisi }}</p>
+                                                <p class="mb-0 text-danger">{{ $item->catatan_revisi }}</p>
                                             </div>
                                         </div>
-                                    @endif
-                                </>
+                                    </div>
+                                @endif
 
                                 <div class="d-flex gap-2 mt-3">
                                     <button type="submit" class="btn btn-primary px-4 btn-draft"
-                                        {{ $periodeItem->disable_input ? 'disabled' : '' }}>
+                                        {{ $item->disable_input ? 'disabled' : '' }}>
                                         <i data-feather="save" class="me-1 small"></i>
                                         Simpan Draft
                                     </button>
 
                                     <button type="submit" class="btn btn-success px-4 btn-submit"
                                         formaction="{{ route('index.scoring.submit') }}"
-                                        {{ $periodeItem->disable_input ? 'disabled' : '' }}>
+                                        {{ $item->disable_input ? 'disabled' : '' }}>
                                         <i data-feather="check-circle" class="me-1"></i>
                                         Kunci & Submit Pembagian
                                     </button>
@@ -391,7 +391,7 @@
         </div>
     @endif
 
-    {{-- Script Kalkulasi Index Scoring + Validasi Submit --}}
+    {{-- Script Kalkulasi Index Scoring + Validasi Submit (tidak berubah) --}}
     <script>
         function getPengurangSikap(kode) {
             switch (parseInt(kode)) {
@@ -410,7 +410,6 @@
             }
         }
 
-        // Mengubah "3.057.300" atau "3057300,50" menjadi angka murni untuk perhitungan
         function toNumber(value) {
             if (value === null || value === undefined) return 0;
             value = value.toString().replace(/\./g, '');
@@ -486,7 +485,6 @@
 
         document.addEventListener('DOMContentLoaded', function() {
 
-            // Kalkulasi otomatis tiap baris
             document.querySelectorAll('tbody tr').forEach(function(row) {
                 row.querySelectorAll(
                     '.jabatan, .pendidikan-formal, .cuti, .izin, .tanpa-izin, .telat, .sikap'
@@ -498,7 +496,6 @@
                 hitungBaris(row);
             });
 
-            // Validasi kelengkapan + konfirmasi sebelum submit final
             document.querySelectorAll('form').forEach(function(form) {
 
                 const btnSubmit = form.querySelector('.btn-submit');
@@ -513,7 +510,6 @@
                         const jabatanSelect = row.querySelector('.jabatan');
                         const formalSelect = row.querySelector('.pendidikan-formal');
 
-                        // Baris terkunci (tidak punya id_petugas / form sudah locked) -> lewati
                         if (!jabatanSelect || jabatanSelect.disabled) return;
 
                         const namaEl = row.querySelector('td:nth-child(2) strong');
