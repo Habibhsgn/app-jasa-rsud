@@ -23,13 +23,14 @@ class RolePermissionMenuSeeder extends Seeder
     protected function seedModules(): void
     {
         $modules = [
-            ['code' => 'jasa',     'name' => 'Jasa & Index Scoring', 'order' => 1],
-            ['code' => 'inacbg',   'name' => 'INA-CBG',               'order' => 2],
-            ['code' => 'laporan',  'name' => 'Laporan',                'order' => 3],
-            ['code' => 'ruangan',  'name' => 'Master Ruangan',          'order' => 4],
-            ['code' => 'pegawai',  'name' => 'Pegawai',                  'order' => 5],
-            ['code' => 'user',     'name' => 'User Management',           'order' => 6],
-            ['code' => 'setting',  'name' => 'Setting',                    'order' => 7],
+            ['code' => 'jasa',          'name' => 'Jasa & Index Scoring',   'order' => 1],
+            ['code' => 'inacbg',        'name' => 'INA-CBG',                'order' => 2],
+            ['code' => 'laporan',       'name' => 'Laporan',                'order' => 3],
+            ['code' => 'ruangan',       'name' => 'Master Ruangan',         'order' => 4],
+            ['code' => 'pegawai',       'name' => 'Pegawai',                'order' => 5],
+            ['code' => 'user',          'name' => 'User Management',        'order' => 6],
+            ['code' => 'setting',       'name' => 'Setting',                'order' => 7],
+            ['code' => 'top-leader',    'name' => 'Top Leader',             'order' => 8],
         ];
 
         foreach ($modules as $m) {
@@ -61,6 +62,8 @@ class RolePermissionMenuSeeder extends Seeder
 
             ['code' => 'setting.index',                          'name' => 'Pengaturan Jasa',                'module' => 'setting'],
             ['code' => 'rbac.manage',                            'name' => 'Kelola Role & Akses',            'module' => 'setting'],
+            ['code' => 'topleader.index',                        'name' => 'Top Leader (Perhitungan)',     'module' => 'top-leader'],
+            ['code' => 'topleader.manage',                       'name' => 'Manajemen Top Leader',           'module' => 'top-leader'],
         ];
 
         foreach ($permissions as $p) {
@@ -92,7 +95,7 @@ class RolePermissionMenuSeeder extends Seeder
             ],
             'manajemen' => [
                 'name' => 'Manajemen',
-                'permissions' => ['dashboard', 'management.index.scoring.index', 'laporan.jasa.index'],
+                'permissions' => ['dashboard', 'management.index.scoring.index', 'laporan.jasa.index', 'topleader.index'],
             ],
         ];
 
@@ -127,6 +130,7 @@ class RolePermissionMenuSeeder extends Seeder
                     ['name' => 'Jasa Ruangan 30%', 'icon' => 'dollar-sign', 'route' => 'karu.jasa', 'permissions' => ['karu.jasa']],
                     ['name' => 'Index Scoring', 'icon' => 'dollar-sign', 'route' => 'index.scoring.index', 'permissions' => ['index.scoring.index']],
                     ['name' => 'INA-CBG', 'icon' => 'file-text', 'route' => 'inacbg.index', 'permissions' => ['inacbg.index']],
+                    ['name' => 'Top Leader', 'icon' => 'users', 'route' => 'top-leader.perhitungan', 'permissions' => ['topleader.index']],
                 ],
             ],
             [
@@ -149,6 +153,7 @@ class RolePermissionMenuSeeder extends Seeder
                     ['name' => 'Manajemen User Login', 'icon' => 'user-check', 'route' => 'users.index', 'permissions' => ['users.index']],
                     ['name' => 'Pengaturan Jasa', 'icon' => 'settings', 'route' => 'setting.index', 'permissions' => ['setting.index']],
                     ['name' => 'Kelola Role & Akses', 'icon' => 'shield', 'route' => 'rbac.roles.index', 'permissions' => ['rbac.manage']],
+                    ['name' => 'Manajemen Top Leader', 'icon' => 'user-plus', 'route' => 'top-leader.index', 'permissions' => ['topleader.manage']],
                 ],
             ],
         ];

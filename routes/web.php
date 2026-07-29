@@ -16,6 +16,8 @@ use App\Http\Controllers\pages\IndexScoringControllers;
 use App\Http\Controllers\pages\ManagementIndexScoringControllers;
 use App\Http\Controllers\pages\InacbgController;
 use App\Http\Controllers\admin\SettingController;
+use App\Http\Controllers\admin\TopLeaderController;
+use App\Http\Controllers\pages\TopLeaderCalculationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -280,6 +282,23 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
         Route::get('/', [SettingController::class, 'index'])->name('index');
         Route::post('/', [SettingController::class, 'update'])->name('update');
     });
+
+    /*
+    |--------------------------------------------------------------------------
+    | TOP LEADER
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['permission:topleader.manage'])->prefix('top-leader')->name('top-leader.')->group(function () {
+        Route::get('/', [TopLeaderController::class, 'index'])->name('index');
+        Route::post('/', [TopLeaderController::class, 'store'])->name('store');
+        Route::put('/{id}', [TopLeaderController::class, 'update'])->name('update');
+        Route::delete('/{id}', [TopLeaderController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::middleware(['permission:topleader.index'])->prefix('top-leader')->name('top-leader.')->group(function () {
+        Route::get('/perhitungan', [TopLeaderCalculationController::class, 'index'])->name('perhitungan');
+    });
+
 });
 
 
@@ -301,4 +320,4 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__ . '/auth.php';
-require __DIR__ . '/rbac.php'; 
+require __DIR__ . '/rbac.php';
