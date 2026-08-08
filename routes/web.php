@@ -17,6 +17,7 @@ use App\Http\Controllers\pages\ManagementIndexScoringControllers;
 use App\Http\Controllers\pages\InacbgController;
 use App\Http\Controllers\admin\SettingController;
 use App\Http\Controllers\pages\MasterBidangController;
+use App\Http\Controllers\pages\LaporanIndexScoringController;
 
 /*
 |--------------------------------------------------------------------------
@@ -101,6 +102,15 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
         Route::get('/laporan/jasa/export', [laporanJasaControllers::class, 'exportExcel'])
             ->name('laporan.jasa.export');
+    });
+
+    Route::middleware(['permission:laporan.index.scoring.index'])->group(function () {
+
+        Route::get('/laporan/index-scoring', [LaporanIndexScoringController::class, 'index'])
+            ->name('laporan.index.scoring.index');
+
+        Route::get('/laporan/index-scoring/export', [LaporanIndexScoringController::class, 'export'])
+            ->name('laporan.index.scoring.export');
     });
 
 

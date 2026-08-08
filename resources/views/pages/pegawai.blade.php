@@ -322,20 +322,20 @@
                                 <div class="col-md-6 mb-3">
                                     <label>Risk</label>
                                     <select name="risk" id="inputRisk" class="form-select" required>
-                                        <option value="1.00">1</option>
-                                        <option value="2.00">2</option>
-                                        <option value="4.00">4</option>
-                                        <option value="6.00">6</option>
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="4">4</option>
+                                        <option value="6">6</option>
                                     </select>
                                 </div>
 
                                 <div class="col-md-6 mb-3">
                                     <label>Emergency</label>
                                     <select name="emergency" id="inputEmergency" class="form-select" required>
-                                        <option value="1.00">1</option>
-                                        <option value="2.00">2</option>
-                                        <option value="4.00">4</option>
-                                        <option value="6.00">6</option>
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="4">4</option>
+                                        <option value="6">6</option>
                                     </select>
                                 </div>
                             </div>
@@ -350,7 +350,7 @@
                             <div class="mb-3">
                                 <label>Gaji Pokok</label>
                                 <input type="number" name="gaji_pokok" id="inputGajiPokok" class="form-control"
-                                    min="0" step="1000" required>
+                                    min="0" step="1" required>
                             </div>
 
                         </div>
@@ -447,8 +447,8 @@
             document.getElementById('inputRuangan').value = ruangan_id;
             document.getElementById('inputPendidikanNonFormal').value = pendidikan_non_formal;
             document.getElementById('inputGajiPokok').value = gaji_pokok;
-            document.getElementById('inputRisk').value = Number(risk).toFixed(2);
-            document.getElementById('inputEmergency').value = Number(emergency).toFixed(2);
+            document.getElementById('inputRisk').value = Number(risk ?? 1);
+            document.getElementById('inputEmergency').value = Number(emergency ?? 1);
         }
 
         function siapkanFormPindah(id, nama, ruanganAsalId) {
