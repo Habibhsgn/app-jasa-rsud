@@ -13,6 +13,7 @@ use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use App\Models\Ruangan;
+use App\Models\MasterBidang;
 
 class RegisteredUserController extends Controller
 {
@@ -21,15 +22,13 @@ class RegisteredUserController extends Controller
      */
     public function create(): View
     {
-        // Cari ID ruangan yang sudah diklaim oleh user lain
-        $ruanganTerpakai = User::whereNotNull('ruangan_id')->pluck('ruangan_id');
+        $ruanganTerpakai = User::whereNotNull('ruangan_id')
+            ->pluck('ruangan_id');
 
-        // Ambil data ruangan yang ID-nya TIDAK ADA di daftar terpakai
         $ruanganTersedia = Ruangan::whereNotIn('id', $ruanganTerpakai)
-            ->orderBy('nama_ruangan', 'asc')
+            ->orderBy('nama_ruangan')
             ->get();
 
-        // Lempar datanya ke tampilan register
         return view('auth.register', compact('ruanganTersedia'));
     }
 
@@ -39,22 +38,98 @@ class RegisteredUserController extends Controller
      * @throws ValidationException
      */
 
-
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
-            'password' => ['required', 'confirmed', \Illuminate\Validation\Rules\Password::defaults()],
-            'ruangan_id' => ['required', 'exists:ruangan,id'], // <-- Wajib diisi & harus ada di tabel ruangan
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+
+            'role' => ['required', 'in:karu,manajemen'],
+
+            'ruangan_id' => [
+                'required_if:role,karu',
+                'nullable',
+                'exists:ruangan,id',
+            ],
+
+            'kode_bidang' => [
+                'required_if:role,manajemen',
+                'nullable',
+                'string',
+            ],
         ]);
 
+        $ruanganId = null;
+        $bidangId = null;
+
+        /*
+    |--------------------------------------------------------------------------
+    | Registrasi Karu
+    |--------------------------------------------------------------------------
+    */
+
+        if ($request->role === 'karu') {
+
+            // Pastikan ruangan belum dipakai
+            $sudahDipakai = User::where('ruangan_id', $request->ruangan_id)->exists();
+
+            if ($sudahDipakai) {
+                return back()
+                    ->withErrors([
+                        'ruangan_id' => 'Ruangan tersebut sudah memiliki Kepala Ruangan.'
+                    ])
+                    ->withInput();
+            }
+
+            $ruanganId = $request->ruangan_id;
+        }
+
+        /*
+    |--------------------------------------------------------------------------
+    | Registrasi Manajemen
+    |--------------------------------------------------------------------------
+    */
+
+        if ($request->role === 'manajemen') {
+
+            $bidang = MasterBidang::whereRaw('UPPER(kode_bidang) = ?', [
+                strtoupper($request->kode_bidang)
+            ])
+                ->where('is_active', true)
+                ->first();
+
+            if (!$bidang) {
+                return back()
+                    ->withErrors([
+                        'kode_bidang' => 'Kode bidang tidak valid.'
+                    ])
+                    ->withInput();
+            }
+
+            if (User::where('bidang_id', $bidang->id)->exists()) {
+                return back()
+                    ->withErrors([
+                        'kode_bidang' => 'Bidang tersebut sudah memiliki akun manajemen.'
+                    ])
+                    ->withInput();
+            }
+        }
+
         $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'role' => 'karu', // Otomatis jadi KARU
-            'ruangan_id' => $request->ruangan_id, // <-- Simpan ID ruangan ke tabel users
+            'name'       => $request->name,
+            'email'      => $request->email,
+            'password'   => Hash::make($request->password),
+
+            'role'       => $request->role,
+
+            'ruangan_id' => $request->role === 'karu'
+                ? $request->ruangan_id
+                : null,
+
+            'bidang_id'  => $request->role === 'manajemen'
+                ? $bidang->id
+                : null,
         ]);
 
         event(new Registered($user));

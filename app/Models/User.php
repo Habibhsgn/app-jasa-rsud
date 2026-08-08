@@ -10,7 +10,14 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role_id'])]
+#[Fillable([
+    'name',
+    'email',
+    'password',
+    'role_id',
+    'ruangan_id',
+    'bidang_id',
+])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -75,5 +82,10 @@ class User extends Authenticatable implements MustVerifyEmail
     public function hasRole(string ...$codes): bool
     {
         return $this->role && in_array($this->role->code, $codes, true);
+    }
+
+    public function bidang()
+    {
+        return $this->belongsTo(MasterBidang::class, 'bidang_id');
     }
 }

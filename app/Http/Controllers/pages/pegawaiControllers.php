@@ -30,7 +30,7 @@ class pegawaiControllers extends Controller
             ->orderBy('nama_ruangan');
 
         $pegawaiQuery = Pegawai::with('ruangan:id,nama_ruangan,resiko,emergency')
-            ->orderBy('nama');
+            ->orderBy('id');
 
         if (in_array($user->role?->code, ['karu', 'koordinator_karu'])) {
             $ruanganQuery->where('id', $user->ruangan_id);
@@ -159,6 +159,8 @@ class pegawaiControllers extends Controller
             'ruangan_id' => 'required|exists:ruangan,id',
             'pendidikan_non_formal' => 'nullable',
             'gaji_pokok' => 'required|numeric',
+            'risk' => 'required|numeric|min:0',
+            'emergency' => 'required|numeric|min:0',
         ]);
 
         $pegawai = Pegawai::findOrFail($id);

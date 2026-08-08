@@ -16,7 +16,7 @@ class Pegawai extends Model
         'id_petugas',
         'ruangan_id',
         'jabatan',
-        'resiko',
+        'risk',
         'emergency',
         'status',
         'ruangan_tujuan_id',

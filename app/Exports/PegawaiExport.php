@@ -25,7 +25,7 @@ class PegawaiExport implements FromCollection, WithHeadings, WithMapping, Should
         return Pegawai::with('ruangan:id,nama_ruangan')
             ->when($this->ruanganId, fn($q) => $q->where('ruangan_id', $this->ruanganId))
             ->orderBy('ruangan_id')
-            ->orderBy('nama')
+            ->orderBy('id')
             ->get();
     }
 

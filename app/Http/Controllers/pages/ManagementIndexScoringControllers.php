@@ -22,7 +22,18 @@ class ManagementIndexScoringControllers extends Controller
      */
     public function index()
     {
-        $rows = IndexScoring::select('periode_pengajuan', 'ruangan_id', 'status_pengajuan')->get();
+        $query = IndexScoring::query();
+
+        if (Auth::user()->role?->code === 'manajemen') {
+            $query->join('ruangan', 'index_scorings.ruangan_id', '=', 'ruangan.id')
+                ->where('ruangan.bidang_id', Auth::user()->bidang_id);
+        }
+
+        $rows = $query->select(
+            'index_scorings.periode_pengajuan',
+            'index_scorings.ruangan_id',
+            'index_scorings.status_pengajuan'
+        )->get();
 
         $grouped = $rows->groupBy(fn($r) => Carbon::parse($r->periode_pengajuan)->format('Y-m'));
 
@@ -49,6 +60,7 @@ class ManagementIndexScoringControllers extends Controller
             ->sortByDesc('periode')
             ->values();
 
+
         return view('pages.management.IndexScoringReview', compact('menunggu', 'riwayat'));
     }
 
@@ -68,8 +80,14 @@ class ManagementIndexScoringControllers extends Controller
 
         $ruanganIds = $scoring->pluck('ruangan_id')->unique();
 
-        $ruangans = DB::table('ruangan')
-            ->whereIn('id', $ruanganIds)
+        $ruanganQuery = DB::table('ruangan')
+            ->whereIn('id', $ruanganIds);
+
+        if (Auth::user()->role?->code === 'manajemen') {
+            $ruanganQuery->where('bidang_id', Auth::user()->bidang_id);
+        }
+
+        $ruangans = $ruanganQuery
             ->orderBy('nama_ruangan')
             ->get();
 
@@ -140,6 +158,18 @@ class ManagementIndexScoringControllers extends Controller
     {
         $periodeDate = Carbon::createFromFormat('Y-m', $periode)->startOfMonth();
 
+        if (Auth::user()->role?->code === 'manajemen') {
+
+            $cekRuangan = DB::table('ruangan')
+                ->where('id', $ruangan)
+                ->where('bidang_id', Auth::user()->bidang_id)
+                ->exists();
+
+            if (!$cekRuangan) {
+                abort(403, 'Anda tidak memiliki akses ke ruangan ini.');
+            }
+        }
+
         $updated = IndexScoring::where('periode_pengajuan', $periodeDate)
             ->where('ruangan_id', $ruangan)
             ->where('status_pengajuan', 'submit')
@@ -175,6 +205,18 @@ class ManagementIndexScoringControllers extends Controller
         ]);
 
         $periodeDate = Carbon::createFromFormat('Y-m', $periode)->startOfMonth();
+
+        if (Auth::user()->role?->code === 'manajemen') {
+
+            $cekRuangan = DB::table('ruangan')
+                ->where('id', $ruangan)
+                ->where('bidang_id', Auth::user()->bidang_id)
+                ->exists();
+
+            if (!$cekRuangan) {
+                abort(403, 'Anda tidak memiliki akses ke ruangan ini.');
+            }
+        }
 
         $updated = IndexScoring::where('periode_pengajuan', $periodeDate)
             ->where('ruangan_id', $ruangan)

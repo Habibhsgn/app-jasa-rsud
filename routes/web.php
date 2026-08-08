@@ -16,6 +16,7 @@ use App\Http\Controllers\pages\IndexScoringControllers;
 use App\Http\Controllers\pages\ManagementIndexScoringControllers;
 use App\Http\Controllers\pages\InacbgController;
 use App\Http\Controllers\admin\SettingController;
+use App\Http\Controllers\pages\MasterBidangController;
 
 /*
 |--------------------------------------------------------------------------
@@ -280,6 +281,21 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
         Route::get('/', [SettingController::class, 'index'])->name('index');
         Route::post('/', [SettingController::class, 'update'])->name('update');
     });
+
+    Route::middleware(['permission:master.bidang.index'])->group(function () {
+
+        Route::get('/master-bidang', [MasterBidangController::class, 'index'])
+            ->name('master.bidang.index');
+
+        Route::post('/master-bidang', [MasterBidangController::class, 'store'])
+            ->name('master.bidang.store');
+
+        Route::put('/master-bidang/{id}', [MasterBidangController::class, 'update'])
+            ->name('master.bidang.update');
+
+        Route::post('/master-bidang/{id}/toggle-status', [MasterBidangController::class, 'toggleStatus'])
+            ->name('master.bidang.toggleStatus');
+    });
 });
 
 
@@ -301,4 +317,4 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__ . '/auth.php';
-require __DIR__ . '/rbac.php'; 
+require __DIR__ . '/rbac.php';
