@@ -223,7 +223,9 @@
                                                         {{ Js::from($p->jabatan) }},
                                                         {{ Js::from($p->ruangan_id) }},
                                                         {{ Js::from($p->pendidikan_non_formal) }},
-                                                        {{ Js::from($p->gaji_pokok) }}
+                                                        {{ Js::from($p->gaji_pokok) }},
+                                                        {{ Js::from($p->risk) }},
+                                                        {{ Js::from($p->emergency) }}
                                                     )">
                                                     Edit
                                                 </button>
@@ -316,6 +318,28 @@
                                 </select>
                             </div>
 
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label>Risk</label>
+                                    <select name="risk" id="inputRisk" class="form-select" required>
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="4">4</option>
+                                        <option value="6">6</option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label>Emergency</label>
+                                    <select name="emergency" id="inputEmergency" class="form-select" required>
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="4">4</option>
+                                        <option value="6">6</option>
+                                    </select>
+                                </div>
+                            </div>
+
                             {{-- FIX: field ini wajib diisi menurut controller, tapi sebelumnya tidak ada di form --}}
                             <div class="mb-3">
                                 <label>Pendidikan Non Formal</label>
@@ -326,7 +350,7 @@
                             <div class="mb-3">
                                 <label>Gaji Pokok</label>
                                 <input type="number" name="gaji_pokok" id="inputGajiPokok" class="form-control"
-                                    min="0" step="1000" required>
+                                    min="0" step="1" required>
                             </div>
 
                         </div>
@@ -402,7 +426,17 @@
             document.getElementById('inputGajiPokok').value = '';
         }
 
-        function siapkanFormEdit(id, nama, id_petugas, jabatan, ruangan_id, pendidikan_non_formal, gaji_pokok) {
+        function siapkanFormEdit(
+            id,
+            nama,
+            id_petugas,
+            jabatan,
+            ruangan_id,
+            pendidikan_non_formal,
+            gaji_pokok,
+            risk,
+            emergency
+        ) {
             document.getElementById('modalPegawaiLabel').innerText = 'Edit Pegawai';
             document.getElementById('formMethod').value = 'PUT';
             document.getElementById('formPegawai').action = `/pegawai/${id}`;
@@ -413,6 +447,8 @@
             document.getElementById('inputRuangan').value = ruangan_id;
             document.getElementById('inputPendidikanNonFormal').value = pendidikan_non_formal;
             document.getElementById('inputGajiPokok').value = gaji_pokok;
+            document.getElementById('inputRisk').value = Number(risk ?? 1);
+            document.getElementById('inputEmergency').value = Number(emergency ?? 1);
         }
 
         function siapkanFormPindah(id, nama, ruanganAsalId) {

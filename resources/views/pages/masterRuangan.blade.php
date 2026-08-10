@@ -32,6 +32,20 @@
                         </div>
 
                         <div class="mb-3">
+                            <label class="form-label">Bidang</label>
+
+                            <select name="bidang_id" class="form-select" required>
+                                <option value="">-- Pilih Bidang --</option>
+
+                                @foreach ($bidang as $b)
+                                    <option value="{{ $b->id }}">
+                                        {{ $b->nama_bidang }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
                             <label class="form-label">Risk Index</label>
                             <select name="resiko" class="form-select" required>
                                 <option value="">-- Pilih Risk Index --</option>
@@ -97,6 +111,7 @@
                                         <th width="15%">Persentase (%)</th>
                                         <th width="12%">Risk</th>
                                         <th width="12%">Emergency</th>
+                                        <th width="18%">Bidang</th>
                                         <th width="15%">Status</th>
                                     </tr>
                                 </thead>
@@ -160,6 +175,28 @@
                                                 @if (!$r->is_active)
                                                     <input type="hidden" name="emergency[]" value="{{ $r->emergency }}">
                                                 @endif
+                                            </td>
+
+                                            <td>
+
+                                                <select name="bidang_id[]" class="form-select form-select-sm"
+                                                    {{ !$r->is_active ? 'disabled' : '' }}>
+
+                                                    @foreach ($bidang as $b)
+                                                        <option value="{{ $b->id }}"
+                                                            {{ $r->bidang_id == $b->id ? 'selected' : '' }}>
+
+                                                            {{ $b->nama_bidang }}
+
+                                                        </option>
+                                                    @endforeach
+
+                                                </select>
+
+                                                @if (!$r->is_active)
+                                                    <input type="hidden" name="bidang_id[]" value="{{ $r->bidang_id }}">
+                                                @endif
+
                                             </td>
 
                                             <td class="text-center">

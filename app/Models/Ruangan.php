@@ -9,12 +9,12 @@ class Ruangan extends Model
     protected $table = 'ruangan';
     protected $fillable = [
         'nama_ruangan',
+        'bidang_id',
         'karu_id',
         'persen_default',
         'resiko',
         'emergency',
-        'is_active'
-
+        'is_active',
     ];
 
     public function karu()
@@ -30,5 +30,10 @@ class Ruangan extends Model
     public function jasaRuangan()
     {
         return $this->hasMany(JasaRuangan::class);
+    }
+
+    public function bidang()
+    {
+        return $this->belongsTo(MasterBidang::class, 'bidang_id');
     }
 }

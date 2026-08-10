@@ -30,7 +30,7 @@ class pegawaiControllers extends Controller
             ->orderBy('nama_ruangan');
 
         $pegawaiQuery = Pegawai::with('ruangan:id,nama_ruangan,resiko,emergency')
-            ->orderBy('nama');
+            ->orderBy('id');
 
         if (in_array($user->role?->code, ['karu', 'koordinator_karu'])) {
             $ruanganQuery->where('id', $user->ruangan_id);
@@ -55,7 +55,7 @@ class pegawaiControllers extends Controller
 
     public function store(Request $request)
     {
-        if (in_array(Auth::user()->role, ['karu', 'koordinator_karu'])) {
+        if (in_array(Auth::user()->role?->code, ['karu', 'koordinator_karu'])) {
             abort(403, 'Tidak boleh edit data pegawai');
         }
 
@@ -78,7 +78,7 @@ class pegawaiControllers extends Controller
      */
     public function import(Request $request)
     {
-        if (in_array(Auth::user()->role, ['karu', 'koordinator_karu'])) {
+        if (in_array(Auth::user()->role?->code, ['karu', 'koordinator_karu'])) {
             abort(403, 'Tidak boleh import data pegawai');
         }
 
@@ -137,7 +137,7 @@ class pegawaiControllers extends Controller
     public function export()
     {
         abort_unless(
-            in_array(Auth::user()->role, ['admin', 'karu', 'koordinator_karu']),
+            in_array(Auth::user()->role?->code, ['admin']),
             403
         );
 
@@ -148,7 +148,7 @@ class pegawaiControllers extends Controller
 
     public function update(Request $request, $id)
     {
-        if (in_array(Auth::user()->role, ['karu', 'koordinator_karu'])) {
+        if (in_array(Auth::user()->role?->code, ['karu', 'koordinator_karu'])) {
             abort(403, 'Tidak boleh edit data pegawai');
         }
 
@@ -159,6 +159,8 @@ class pegawaiControllers extends Controller
             'ruangan_id' => 'required|exists:ruangan,id',
             'pendidikan_non_formal' => 'nullable',
             'gaji_pokok' => 'required|numeric',
+            'risk' => 'required|numeric|min:0',
+            'emergency' => 'required|numeric|min:0',
         ]);
 
         $pegawai = Pegawai::findOrFail($id);
@@ -169,7 +171,7 @@ class pegawaiControllers extends Controller
 
     public function updateRuanganResikoEmergency(Request $request, $id)
     {
-        abort_unless(Auth::user()->role === 'admin', 403, 'Hanya admin yang boleh mengubah resiko/emergency.');
+        abort_unless(Auth::user()->role?->code === 'admin', 403, 'Hanya admin yang boleh mengubah resiko/emergency.');
 
         $request->validate([
             'resiko' => 'required|in:1,2,4,6',
@@ -193,7 +195,7 @@ class pegawaiControllers extends Controller
     public function updateIdPetugas(Request $request, $id)
     {
         abort_unless(
-            in_array(Auth::user()->role, ['admin', 'karu', 'koordinator_karu']),
+            in_array(Auth::user()->role?->code, ['admin', 'karu', 'koordinator_karu']),
             403
         );
 
@@ -270,7 +272,7 @@ class pegawaiControllers extends Controller
      */
     public function batalkanPindah($id)
     {
-        abort_unless(Auth::user()->role === 'admin', 403, 'Hanya admin yang boleh membatalkan pengajuan pindah.');
+        abort_unless(Auth::user()->role?->code === 'admin', 403, 'Hanya admin yang boleh membatalkan pengajuan pindah.');
 
         $pegawai = Pegawai::findOrFail($id);
 
@@ -385,7 +387,7 @@ class pegawaiControllers extends Controller
 
     public function destroy($id)
     {
-        if (in_array(Auth::user()->role, ['karu', 'koordinator_karu'])) {
+        if (in_array(Auth::user()->role?->code, ['karu', 'koordinator_karu'])) {
             abort(403, 'Tidak boleh hapus data pegawai');
         }
 

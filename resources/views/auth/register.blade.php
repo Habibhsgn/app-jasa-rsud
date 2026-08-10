@@ -95,6 +95,28 @@
                 </div>
 
                 <div class="mb-3">
+                    <label class="form-label">Jenis Akun</label>
+
+                    <select name="role" id="role" class="form-select" required>
+                        <option value="">-- Pilih Jenis Akun --</option>
+                        <option value="karu">Kepala Ruangan</option>
+                        <option value="manajemen">Manajemen</option>
+                    </select>
+                </div>
+
+                <div class="mb-3" id="ruangan-group" style="display:none;">
+                    <label class="form-label">Penempatan Ruangan</label>
+
+                    <select name="ruangan_id" class="form-select" required>
+                        <option value="">-- Pilih Ruangan --</option>
+                        @forelse($ruanganTersedia as $ruangan)
+                            <option value="{{ $ruangan->id }}">{{ $ruangan->nama_ruangan }}</option>
+                        @empty
+                            <option disabled>Semua ruangan sudah memiliki Kepala Ruangan</option>
+                        @endforelse
+                    </select>
+                </div>
+                {{-- <div class="mb-3">
                     <label class="form-label">Penempatan Ruangan</label>
                     <select name="ruangan_id" class="form-select" required>
                         <option value="">-- Pilih Ruangan --</option>
@@ -104,6 +126,13 @@
                             <option disabled>Semua ruangan sudah memiliki Kepala Ruangan</option>
                         @endforelse
                     </select>
+                </div> --}}
+
+                <div class="mb-3" id="kode-group" style="display:none;">
+                    <label class="form-label">Kode Bidang</label>
+
+                    <input type="text" name="kode_bidang" class="form-control text-uppercase"
+                        placeholder="Masukkan kode bidang">
                 </div>
 
                 <div class="mb-3">
@@ -137,4 +166,33 @@
             </form>
         </div>
     </div>
+    <script>
+        const role = document.getElementById('role');
+
+        const ruanganGroup = document.getElementById('ruangan-group');
+        const kodeGroup = document.getElementById('kode-group');
+
+        const ruangan = document.querySelector('[name="ruangan_id"]');
+        const kode = document.querySelector('[name="kode_bidang"]');
+
+        role.addEventListener('change', function() {
+
+            ruanganGroup.style.display = 'none';
+            kodeGroup.style.display = 'none';
+
+            ruangan.required = false;
+            kode.required = false;
+
+            if (this.value === 'karu') {
+                ruanganGroup.style.display = 'block';
+                ruangan.required = true;
+            }
+
+            if (this.value === 'manajemen') {
+                kodeGroup.style.display = 'block';
+                kode.required = true;
+            }
+
+        });
+    </script>
 </x-guest-layout>

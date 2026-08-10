@@ -434,6 +434,9 @@
             let telat = toNumber(row.querySelector('.telat').value);
             let kodeSikap = toNumber(row.querySelector('.sikap').value);
 
+            // ============================================================
+            // TOTAL SCORE (Basic + Competency + Risk + Emergency + Position + Performance)
+            // ============================================================
             let basicIndex = gajiPokok / 100000;
             let scoreBasic = basicIndex * 1;
 
@@ -450,8 +453,12 @@
             let totalScore =
                 scoreBasic + scoreCompetency + scoreRisk + scoreEmergency + scorePosition + scorePerformance;
 
+            // ============================================================
+            // TOTAL PERSEN PENGURANG (Cuti+Izin, Tanpa Izin, Telat, Sikap)
+            // ============================================================
             let persenPengurang = 0;
 
+            // Cuti + Izin digabung, mengikuti tabel rentang hari
             let totalCutiIzin = cuti + izin;
             let pengurangCutiIzin = 0;
             if (totalCutiIzin > 0) {
@@ -462,6 +469,7 @@
             }
             persenPengurang += pengurangCutiIzin;
 
+            // Tanpa Izin, mengikuti tabel rentang hari
             let pengurangTanpaIzin = 0;
             if (tanpaIzin >= 1 && tanpaIzin <= 3) pengurangTanpaIzin = 20;
             else if (tanpaIzin >= 4 && tanpaIzin <= 6) pengurangTanpaIzin = 40;
@@ -469,17 +477,31 @@
             else if (tanpaIzin >= 30) pengurangTanpaIzin = 100;
             persenPengurang += pengurangTanpaIzin;
 
+            // Telat & cepat pulang, -3% per kelipatan 7 jam
             let pengurangTelat = Math.floor(telat / 7) * 3;
             persenPengurang += pengurangTelat;
 
+            // Sikap, sesuai kode pelanggaran yang dipilih
             let pengurangSikap = getPengurangSikap(kodeSikap);
             persenPengurang += pengurangSikap;
 
+            // Total pengurang di-cap maksimal 100%
             persenPengurang = Math.min(persenPengurang, 100);
 
+            // ============================================================
+            // JUMLAH AKHIR = Total Score dikurangi persen pengurang
+            // ============================================================
             let jumlahAkhir = totalScore * (1 - persenPengurang / 100);
 
-            row.querySelector('.jumlah').value = round2(totalScore);
+            // ============================================================
+            // OUTPUT
+            // ============================================================
+            // FIX: kolom JUMLAH sekarang benar-benar berisi
+            // "Total Skor Pengurangan" (persenPengurang), BUKAN totalScore.
+            // Sebelumnya kolom ini diam karena diisi totalScore yang tidak
+            // dipengaruhi Cuti/Izin/Tanpa Izin/Telat/Sikap sama sekali.
+            row.querySelector('.jumlah').value = round2(persenPengurang);
+
             row.querySelector('.jumlah-akhir').value = round2(jumlahAkhir);
         }
 
@@ -543,4 +565,264 @@
 
         });
     </script>
+    {{-- <script>
+        function getPengurangSikap(kode) {
+            switch (parseInt(kode)) {
+                case 1:
+                    return 100;
+                case 2:
+                    return 100;
+                case 3:
+                    return 25;
+                case 4:
+                    return 50;
+                case 5:
+                    return 100;
+                default:
+                    return 0;
+            }
+        }
+
+        function toNumber(value) {
+            if (value === null || value === undefined) return 0;
+            value = value.toString().replace(/\./g, '');
+            value = value.replace(/,/g, '.');
+            return parseFloat(value) || 0;
+        }
+
+        function round2(number) {
+            return Math.round(number * 100) / 100;
+        }
+
+        function hitungBaris(row) {
+
+            // Ambil nama pegawai untuk label log (biar gampang bedain antar baris)
+            const namaEl = row.querySelector('td:nth-child(2) strong');
+            const namaPegawai = namaEl ? namaEl.textContent.trim() : '(tanpa nama)';
+
+            console.log(
+                '%c=== HITUNG BARIS: ' + namaPegawai + ' ===',
+                'color:#fff; background:#0d6efd; padding:2px 6px; font-weight:bold;'
+            );
+
+            let jabatan = toNumber(row.querySelector('.jabatan').value);
+            let pendidikanFormal = toNumber(row.querySelector('.pendidikan-formal').value);
+            let pendidikanNonFormal = toNumber(row.querySelector('.pendidikan-non-formal').value);
+            let gajiPokok = toNumber(row.querySelector('.gaji-pokok').value);
+            let risk = toNumber(row.querySelector('.risk').value);
+            let emergency = toNumber(row.querySelector('.emergency').value);
+            let cuti = toNumber(row.querySelector('.cuti').value);
+            let izin = toNumber(row.querySelector('.izin').value);
+            let tanpaIzin = toNumber(row.querySelector('.tanpa-izin').value);
+            let telat = toNumber(row.querySelector('.telat').value);
+            let kodeSikap = toNumber(row.querySelector('.sikap').value);
+
+            console.log('[INPUT MENTAH]', {
+                jabatan,
+                pendidikanFormal,
+                pendidikanNonFormal,
+                gajiPokok,
+                risk,
+                emergency,
+                cuti,
+                izin,
+                tanpaIzin,
+                telat,
+                kodeSikap,
+            });
+
+            // ============================================================
+            // TOTAL SCORE (Basic + Competency + Risk + Emergency + Position + Performance)
+            // ============================================================
+            let basicIndex = gajiPokok / 100000;
+            console.log('[BASIC INDEX] gajiPokok / 100000 = ' + gajiPokok + ' / 100000 = ' + basicIndex);
+
+            let scoreBasic = basicIndex * 1;
+            console.log('[SCORE BASIC] basicIndex * rating(1) = ' + basicIndex + ' * 1 = ' + scoreBasic);
+
+            let competency = pendidikanFormal + pendidikanNonFormal;
+            console.log('[COMPETENCY] pendidikanFormal + pendidikanNonFormal = ' +
+                pendidikanFormal + ' + ' + pendidikanNonFormal + ' = ' + competency);
+
+            let scoreCompetency = competency * 3;
+            console.log('[SCORE COMPETENCY] competency * rating(3) = ' + competency + ' * 3 = ' + scoreCompetency);
+
+            let scoreRisk = risk * 3;
+            console.log('[SCORE RISK] risk * rating(3) = ' + risk + ' * 3 = ' + scoreRisk);
+
+            let scoreEmergency = emergency * 3;
+            console.log('[SCORE EMERGENCY] emergency * rating(3) = ' + emergency + ' * 3 = ' + scoreEmergency);
+
+            let scorePosition = jabatan * 3;
+            console.log('[SCORE POSITION] jabatan * rating(3) = ' + jabatan + ' * 3 = ' + scorePosition);
+
+            let performanceIndex = basicIndex * 2;
+            console.log('[PERFORMANCE INDEX] basicIndex * 2 = ' + basicIndex + ' * 2 = ' + performanceIndex);
+
+            let scorePerformance = performanceIndex * 4;
+            console.log('[SCORE PERFORMANCE] performanceIndex * rating(4) = ' + performanceIndex + ' * 4 = ' +
+                scorePerformance);
+
+            let totalScore =
+                scoreBasic + scoreCompetency + scoreRisk + scoreEmergency + scorePosition + scorePerformance;
+
+            console.log(
+                '[TOTAL SCORE] scoreBasic + scoreCompetency + scoreRisk + scoreEmergency + scorePosition + scorePerformance\n' +
+                '            = ' + scoreBasic + ' + ' + scoreCompetency + ' + ' + scoreRisk + ' + ' +
+                scoreEmergency + ' + ' + scorePosition + ' + ' + scorePerformance + '\n' +
+                '            = ' + totalScore
+            );
+
+            // ============================================================
+            // TOTAL PERSEN PENGURANG (Cuti+Izin, Tanpa Izin, Telat, Sikap)
+            // ============================================================
+            let persenPengurang = 0;
+
+            // Cuti + Izin digabung, mengikuti tabel rentang hari
+            let totalCutiIzin = cuti + izin;
+            let pengurangCutiIzin = 0;
+            if (totalCutiIzin > 0) {
+                if (totalCutiIzin < 4) pengurangCutiIzin = 8;
+                else if (totalCutiIzin <= 8) pengurangCutiIzin = 12;
+                else if (totalCutiIzin <= 12) pengurangCutiIzin = 30;
+                else pengurangCutiIzin = 50;
+            }
+            console.log('[PENGURANG CUTI+IZIN] totalCutiIzin = cuti(' + cuti + ') + izin(' + izin + ') = ' +
+                totalCutiIzin + ' -> pengurang = ' + pengurangCutiIzin + '%');
+            persenPengurang += pengurangCutiIzin;
+
+            // Tanpa Izin, mengikuti tabel rentang hari
+            let pengurangTanpaIzin = 0;
+            if (tanpaIzin >= 1 && tanpaIzin <= 3) pengurangTanpaIzin = 20;
+            else if (tanpaIzin >= 4 && tanpaIzin <= 6) pengurangTanpaIzin = 40;
+            else if (tanpaIzin >= 7 && tanpaIzin < 30) pengurangTanpaIzin = Math.ceil(tanpaIzin / 7) * 40;
+            else if (tanpaIzin >= 30) pengurangTanpaIzin = 100;
+            console.log('[PENGURANG TANPA IZIN] tanpaIzin = ' + tanpaIzin + ' hari -> pengurang = ' + pengurangTanpaIzin +
+                '%');
+            persenPengurang += pengurangTanpaIzin;
+
+            // Telat & cepat pulang, -3% per kelipatan 7 jam
+            let pengurangTelat = Math.floor(telat / 7) * 3;
+            console.log('[PENGURANG TELAT] floor(telat(' + telat + ') / 7) * 3 = ' +
+                Math.floor(telat / 7) + ' * 3 = ' + pengurangTelat + '%');
+            persenPengurang += pengurangTelat;
+
+            // Sikap, sesuai kode pelanggaran yang dipilih
+            let pengurangSikap = getPengurangSikap(kodeSikap);
+            console.log('[PENGURANG SIKAP] kodeSikap = ' + kodeSikap + ' -> pengurang = ' + pengurangSikap + '%');
+            persenPengurang += pengurangSikap;
+
+            console.log('[SUBTOTAL PENGURANG sebelum cap] ' +
+                pengurangCutiIzin + ' + ' + pengurangTanpaIzin + ' + ' + pengurangTelat + ' + ' + pengurangSikap +
+                ' = ' + persenPengurang + '%');
+
+            // Total pengurang di-cap maksimal 100%
+            const sebelumCap = persenPengurang;
+            persenPengurang = Math.min(persenPengurang, 100);
+            if (sebelumCap !== persenPengurang) {
+                console.log('[CAP PENGURANG] ' + sebelumCap + '% dibatasi jadi maksimal ' + persenPengurang + '%');
+            } else {
+                console.log('[CAP PENGURANG] tidak melebihi 100%, tetap ' + persenPengurang + '%');
+            }
+
+            // ============================================================
+            // JUMLAH AKHIR = Total Score dikurangi persen pengurang
+            // ============================================================
+            let jumlahAkhir = totalScore * (1 - persenPengurang / 100);
+            console.log(
+                '[JUMLAH AKHIR] totalScore * (1 - persenPengurang/100)\n' +
+                '             = ' + totalScore + ' * (1 - ' + persenPengurang + '/100)\n' +
+                '             = ' + totalScore + ' * ' + (1 - persenPengurang / 100) + '\n' +
+                '             = ' + jumlahAkhir
+            );
+
+            // ============================================================
+            // OUTPUT
+            // ============================================================
+            const jumlahRounded = round2(persenPengurang);
+            const jumlahAkhirRounded = round2(jumlahAkhir);
+
+            row.querySelector('.jumlah').value = jumlahRounded;
+            console.log('[OUTPUT] .jumlah (Total Skor Pengurangan) = ' + jumlahRounded);
+
+            row.querySelector('.jumlah-akhir').value = jumlahAkhirRounded;
+            console.log('[OUTPUT] .jumlah-akhir = ' + jumlahAkhirRounded);
+
+            console.log(
+                '%c=== SELESAI: ' + namaPegawai + ' ===',
+                'color:#fff; background:#198754; padding:2px 6px; font-weight:bold;'
+            );
+            console.log(''); // pemisah antar baris pegawai
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+
+            document.querySelectorAll('tbody tr').forEach(function(row) {
+                row.querySelectorAll(
+                    '.jabatan, .pendidikan-formal, .cuti, .izin, .tanpa-izin, .telat, .sikap'
+                ).forEach(function(input) {
+                    input.addEventListener('change', function() {
+                        console.log(
+                            '%c>> Input berubah: ' + input.className + ' = "' + input
+                            .value + '"',
+                            'color:#fd7e14; font-style:italic;'
+                        );
+                        hitungBaris(row);
+                    });
+                });
+                hitungBaris(row);
+            });
+
+            document.querySelectorAll('form').forEach(function(form) {
+
+                const btnSubmit = form.querySelector('.btn-submit');
+                if (!btnSubmit) return;
+
+                btnSubmit.addEventListener('click', function(e) {
+
+                    const belumLengkap = [];
+
+                    form.querySelectorAll('tbody tr').forEach(function(row) {
+
+                        const jabatanSelect = row.querySelector('.jabatan');
+                        const formalSelect = row.querySelector('.pendidikan-formal');
+
+                        if (!jabatanSelect || jabatanSelect.disabled) return;
+
+                        const namaEl = row.querySelector('td:nth-child(2) strong');
+                        const nama = namaEl ? namaEl.textContent.trim() : 'Pegawai';
+
+                        if (jabatanSelect.value === '0' || formalSelect.value === '0') {
+                            belumLengkap.push(nama);
+                        }
+                    });
+
+                    console.log('[VALIDASI SUBMIT] Pegawai belum lengkap:', belumLengkap);
+
+                    if (belumLengkap.length > 0) {
+                        e.preventDefault();
+                        alert(
+                            'Tidak bisa submit final. Lengkapi dulu Jabatan & Pendidikan Formal untuk:\n- ' +
+                            belumLengkap.join('\n- ')
+                        );
+                        return false;
+                    }
+
+                    const konfirmasi = confirm(
+                        'Setelah disimpan final, data TIDAK BISA DIEDIT kembali \n\n' +
+                        'Pastikan seluruh data sudah benar. Lanjutkan submit final?'
+                    );
+
+                    console.log('[KONFIRMASI SUBMIT] ' + (konfirmasi ? 'Dilanjutkan' :
+                        'Dibatalkan user'));
+
+                    if (!konfirmasi) {
+                        e.preventDefault();
+                        return false;
+                    }
+                });
+            });
+
+        });
+    </script> --}}
 @endsection

@@ -175,7 +175,7 @@ class jasaRuanganControllers extends Controller
             ], 404);
         }
 
-        if (Auth::user()->role?->code !== 'admin') {
+        if (Auth::user()->role?->code?->code !== 'admin') {
             return response()->json([
                 'success' => false,
                 'message' => 'Hanya admin yang boleh menghapus baris ini.'

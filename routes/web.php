@@ -18,6 +18,8 @@ use App\Http\Controllers\pages\InacbgController;
 use App\Http\Controllers\admin\SettingController;
 use App\Http\Controllers\admin\TopLeaderController;
 use App\Http\Controllers\pages\TopLeaderCalculationController;
+use App\Http\Controllers\pages\MasterBidangController;
+use App\Http\Controllers\pages\LaporanIndexScoringController;
 
 /*
 |--------------------------------------------------------------------------
@@ -102,6 +104,15 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
         Route::get('/laporan/jasa/export', [laporanJasaControllers::class, 'exportExcel'])
             ->name('laporan.jasa.export');
+    });
+
+    Route::middleware(['permission:laporan.index.scoring.index'])->group(function () {
+
+        Route::get('/laporan/index-scoring', [LaporanIndexScoringController::class, 'index'])
+            ->name('laporan.index.scoring.index');
+
+        Route::get('/laporan/index-scoring/export', [LaporanIndexScoringController::class, 'export'])
+            ->name('laporan.index.scoring.export');
     });
 
 
@@ -299,6 +310,21 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
         Route::get('/perhitungan', [TopLeaderCalculationController::class, 'index'])->name('perhitungan');
     });
 
+
+    Route::middleware(['permission:master.bidang.index'])->group(function () {
+
+        Route::get('/master-bidang', [MasterBidangController::class, 'index'])
+            ->name('master.bidang.index');
+
+        Route::post('/master-bidang', [MasterBidangController::class, 'store'])
+            ->name('master.bidang.store');
+
+        Route::put('/master-bidang/{id}', [MasterBidangController::class, 'update'])
+            ->name('master.bidang.update');
+
+        Route::post('/master-bidang/{id}/toggle-status', [MasterBidangController::class, 'toggleStatus'])
+            ->name('master.bidang.toggleStatus');
+    });
 });
 
 
