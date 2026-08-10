@@ -152,10 +152,10 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
         Route::get('/review-index-scoring/{periode}', [ManagementIndexScoringControllers::class, 'show'])
             ->name('management.index.scoring.show');
 
-        Route::post('/review-index-scoring/{periode}/{ruangan}/approve', [ManagementIndexScoringControllers::class, 'approve'])
+        Route::post('/review-index-scoring/{periode}/{id}/approve/{sourceType?}', [ManagementIndexScoringControllers::class, 'approve'])
             ->name('management.index.scoring.approve');
 
-        Route::post('/review-index-scoring/{periode}/{ruangan}/revisi', [ManagementIndexScoringControllers::class, 'revisi'])
+        Route::post('/review-index-scoring/{periode}/{id}/revisi/{sourceType?}', [ManagementIndexScoringControllers::class, 'revisi'])
             ->name('management.index.scoring.revisi');
     });
 

@@ -15,10 +15,12 @@ class TopLeader extends Model
     protected $fillable = [
         'nama',
         'posisi',
+        'gaji_pokok',
         'is_active',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'gaji_pokok' => 'integer',
     ];
 }
