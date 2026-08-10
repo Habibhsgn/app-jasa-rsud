@@ -18,6 +18,7 @@ class TopLeaderRequest extends FormRequest
         return [
             'nama' => ['required', 'string', 'max:100'],
             'posisi' => ['required', 'string', 'max:50', Rule::in(['Direktur', 'Kabid', 'Kasie', 'Bendahara', 'Casemix', 'Costing'])],
+            'gaji_pokok' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['boolean'],
         ];
     }

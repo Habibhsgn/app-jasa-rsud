@@ -4,7 +4,8 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
             <h1 class="h3 mb-0"><strong>Perhitungan</strong> Top Leader</h1>
-            <p class="text-muted mb-0 small">Alokasi jasa untuk jajaran top leader berdasarkan periode klaim INA-CBG</p>
+            <p class="text-muted mb-0 small">Alokasi jasa untuk jajaran top leader berdasarkan bobot Index Scoring (periode
+                klaim INA-CBG)</p>
         </div>
     </div>
 
@@ -98,89 +99,169 @@
             </div>
         </div>
 
-        <!-- Detail Perhitungan per Posisi -->
-        <div class="card shadow-sm">
-            <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Detail Alokasi per Posisi</h5>
-                <span class="badge text-bg-secondary">{{ count($calculations) }} Posisi</span>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Posisi</th>
-                                <th class="text-end">Persen</th>
-                                <th style="width: 20%">Proporsi</th>
-                                <th class="text-end">Alokasi Total</th>
-                                <th class="text-center">Jumlah Orang</th>
-                                <th class="text-end">Per Orang</th>
-                                <th>Anggota</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($calculations as $posisi => $data)
-                                <tr>
-                                    <td><strong>{{ $posisi }}</strong></td>
-                                    <td class="text-end">{{ number_format($data['persen'], 1, ',', '.') }}%</td>
-                                    <td>
-                                        <div class="progress" style="height: 6px;">
-                                            <div class="progress-bar" role="progressbar"
-                                                style="width: {{ $data['persen'] }}%"
-                                                aria-valuenow="{{ $data['persen'] }}" aria-valuemin="0"
-                                                aria-valuemax="100"></div>
-                                        </div>
-                                    </td>
-                                    <td class="text-end">Rp {{ number_format($data['alokasi_total'], 0, ',', '.') }}</td>
-                                    <td class="text-center">
-                                        @if ($data['jumlah_orang'] > 0)
-                                            <span
-                                                class="badge rounded-pill text-bg-success">{{ $data['jumlah_orang'] }}</span>
-                                        @else
-                                            <span class="badge rounded-pill text-bg-warning">Kosong</span>
-                                        @endif
-                                    </td>
-                                    <td class="text-end">
-                                        @if ($data['jumlah_orang'] > 0)
-                                            <strong>Rp {{ number_format($data['per_orang'], 0, ',', '.') }}</strong>
-                                        @else
-                                            <span class="text-muted">-</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if ($data['anggota']->count() > 0)
-                                            <ul class="mb-0 ps-3 small">
-                                                @foreach ($data['anggota'] as $anggota)
-                                                    <li>{{ $anggota->nama }}</li>
-                                                @endforeach
-                                            </ul>
-                                        @else
-                                            <span class="text-muted small fst-italic">Belum ada anggota</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                        <tfoot class="table-light">
-                            <tr>
-                                <th>TOTAL</th>
-                                <th class="text-end">100%</th>
-                                <th></th>
-                                <th class="text-end">Rp {{ number_format($totalTopLeader, 0, ',', '.') }}</th>
-                                <th></th>
-                                <th></th>
-                                <th></th>
-                            </tr>
-                        </tfoot>
-                    </table>
+        <!-- Total Bobot Index Scoring -->
+        <div class="card mb-4 shadow-sm border-start border-success border-4">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-8">
+                        <h6 class="mb-1">Total Bobot Index Scoring (Jumlah Akhir)</h6>
+                        @if ($totalBobot > 0)
+                            <p class="mb-0 text-muted small">Penjumlahan <strong>Jumlah Akhir</strong> dari semua Top Leader
+                                yang status <span class="badge bg-primary">Selesai</span> pada periode ini</p>
+                        @else
+                            <p class="mb-0 text-warning"><i class="bi bi-exclamation-triangle me-1"></i> <strong>Index
+                                    Scoring belum diajukan</strong> untuk periode ini. Alokasi per posisi dihitung dari
+                                INA-CBG, tapi distribusi ke individu memerlukan Index Scoring status Selesai.</p>
+                        @endif
+                    </div>
+                    <div class="col-md-4 text-md-end">
+                        <h3 class="mb-0 {{ $totalBobot > 0 ? 'text-success' : 'text-muted' }}">
+                            {{ number_format($totalBobot, 2, ',', '.') }}</h3>
+                    </div>
                 </div>
             </div>
         </div>
 
+        <!-- Detail Perhitungan per Posisi -->
+        @if ($totalBobot > 0)
+            <div class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Detail Alokasi per Posisi (Berdasarkan Bobot Index Scoring)</h5>
+                    <span class="badge text-bg-secondary">{{ count($calculations) }} Posisi</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Posisi</th>
+                                    <th class="text-end">Total Bobot</th>
+                                    <th class="text-end">% Bobot</th>
+                                    <th class="text-end">Alokasi Total</th>
+                                    <th class="text-center">Jumlah Orang</th>
+                                    <th class="text-end">Rata-rata/Orang</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($calculations as $posisi => $data)
+                                    <tr>
+                                        <td><strong>{{ $posisi }}</strong></td>
+                                        <td class="text-end">{{ number_format($data['total_bobot'], 2, ',', '.') }}</td>
+                                        <td class="text-end">
+                                            <div class="progress" style="height: 6px; width: 100px;">
+                                                <div class="progress-bar bg-success" role="progressbar"
+                                                    style="width: {{ $data['persen'] }}%"
+                                                    aria-valuenow="{{ $data['persen'] }}" aria-valuemin="0"
+                                                    aria-valuemax="100"></div>
+                                            </div>
+                                            <small
+                                                class="text-muted">{{ number_format($data['persen'], 2, ',', '.') }}%</small>
+                                        </td>
+                                        <td class="text-end"><strong>Rp
+                                                {{ number_format($data['alokasi_total'], 0, ',', '.') }}</strong></td>
+                                        <td class="text-center">
+                                            @if ($data['jumlah_orang'] > 0)
+                                                <span
+                                                    class="badge rounded-pill text-bg-success">{{ $data['jumlah_orang'] }}</span>
+                                            @else
+                                                <span class="badge rounded-pill text-bg-warning">Kosong</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-end">Rp {{ number_format($data['per_orang_rata'], 0, ',', '.') }}
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <th>TOTAL</th>
+                                    <th class="text-end">{{ number_format($totalBobot, 2, ',', '.') }}</th>
+                                    <th class="text-end">100%</th>
+                                    <th class="text-end">Rp {{ number_format($totalTopLeader, 0, ',', '.') }}</th>
+                                    <th></th>
+                                    <th></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detail Per Orang -->
+            <div class="card mt-4 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0">Detail Alokasi per Individu</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>NO</th>
+                                    <th>Nama</th>
+                                    <th>Posisi</th>
+                                    <th class="text-end">Gaji Pokok</th>
+                                    <th class="text-end">Jumlah Akhir<br><small>(Bobot Index Scoring)</small></th>
+                                    <th class="text-end">% Bobot (dalam posisi)</th>
+                                    <th class="text-end"><strong>Alokasi Top Leader</strong></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($detailPerOrang as $i => $a)
+                                    <tr>
+                                        <td>{{ $i + 1 }}</td>
+                                        <td><strong>{{ $a['nama'] }}</strong></td>
+                                        <td><span class="badge text-bg-info">{{ $a['posisi'] }}</span></td>
+                                        <td class="text-end">Rp {{ number_format($a['gaji_pokok'], 0, ',', '.') }}</td>
+                                        <td class="text-end">{{ number_format($a['jumlah_akhir'], 2, ',', '.') }}</td>
+                                        <td class="text-end">
+                                            @if ($a['jumlah_akhir'] > 0)
+                                                <span
+                                                    class="badge text-bg-success">{{ number_format($a['bobot_persen_posisi'], 2, ',', '.') }}%</span>
+                                            @else
+                                                <span class="badge text-bg-secondary">Belum ada Index Scoring</span>
+                                            @endif
+                                        </td>
+                                        <td class="text-end">
+                                            @if ($a['alokasi'] > 0)
+                                                <strong class="text-primary">Rp
+                                                    {{ number_format($a['alokasi'], 0, ',', '.') }}</strong>
+                                            @else
+                                                <span class="text-muted">-</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot class="table-light">
+                                <tr>
+                                    <th colspan="5" class="text-end">TOTAL</th>
+                                    <th class="text-end">100%</th>
+                                    <th class="text-end"><strong>Rp
+                                            {{ number_format($totalTopLeader, 0, ',', '.') }}</strong></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        @else
+            <div class="card mt-4 shadow-sm border-start border-warning border-4">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-exclamation-triangle fs-1 text-warning mb-3"></i>
+                    <h5 class="mb-2">Index Scoring Belum Diajukan</h5>
+                    <p class="text-muted mb-3">Belum ada data Index Scoring Top Leader dengan status <span
+                            class="badge bg-primary">Selesai</span> untuk periode ini.</p>
+                    <p class="text-muted mb-0">Silakan isi Index Scoring terlebih dahulu agar alokasi per individu dapat
+                        dihitung.</p>
+                </div>
+            </div>
+        @endif
+
         <!-- Rumus Perhitungan -->
         <div class="card mt-4 shadow-sm">
             <div class="card-header bg-white">
-                <h5 class="mb-0">Cara Perhitungan</h5>
+                <h5 class="mb-0">Cara Perhitungan (Baru - Berbasis Index Scoring)</h5>
             </div>
             <div class="card-body">
                 <ol class="mb-0">
@@ -206,17 +287,26 @@
                     <li class="mb-2">
                         <strong>Total Top Leader</strong> — Nilai Persen Jasa di atas dikalikan lagi
                         {{ $persenTopLeader }}% (diatur lewat pengaturan <code>persen_jasa_top_leader</code>).
-                        Angka inilah yang menjadi dana yang akan dibagi ke seluruh jajaran top leader (dianggap 100%).
+                        Angka inilah yang menjadi dana yang akan dibagi ke seluruh jajaran top leader.
                     </li>
                     <li class="mb-2">
-                        <strong>Alokasi per Posisi</strong> — Dana Total Top Leader dibagi ke tiap posisi
-                        (Direktur, Kabid, Kasie, dst.) sesuai persentase masing-masing posisi
-                        (diatur lewat pengaturan <code>top_leader.*</code>).
+                        <strong>Bobot Index Scoring</strong> — Ambil data <strong>Index Scoring</strong> semua Top Leader
+                        yang status <span class="badge bg-primary">Selesai</span> pada periode yang sama.
+                        Kolom <strong>Jumlah Akhir</strong> menjadi bobot masing-masing individu.
+                    </li>
+                    <li class="mb-2">
+                        <strong>Total Bobot</strong> — Penjumlahan Jumlah Akhir semua Top Leader.
+                    </li>
+                    <li class="mb-2">
+                        <strong>Alokasi per Individu</strong> — <code>(Jumlah Akhir Individu / Total Bobot) × Total Top
+                            Leader</code>.
+                        <br>Contoh: Kabid A (11.2) + Kabid B (10) = Total 21.2 → Pool 65.000.000
+                        <br>A dapat: 11.2/21.2 × 65.000.000 = <strong>34.339.623</strong>
+                        <br>B dapat: 10/21.2 × 65.000.000 = <strong>30.660.377</strong>
                     </li>
                     <li>
-                        <strong>Per Orang</strong> — Alokasi tiap posisi dibagi rata dengan jumlah orang
-                        yang menjabat posisi tersebut. Jika hanya ada 1 orang, dia menerima seluruh
-                        alokasi posisi itu.
+                        <strong>Catatan:</strong> Top Leader yang belum punya Index Scoring "Selesai" pada periode ini
+                        mendapat bobot 0 (tidak mendapat alokasi).
                     </li>
                 </ol>
             </div>

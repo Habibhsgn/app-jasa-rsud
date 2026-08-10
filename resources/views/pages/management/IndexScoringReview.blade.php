@@ -27,6 +27,7 @@
                         <tr>
                             <th>Periode</th>
                             <th>Jumlah Ruangan</th>
+                            <th>Jumlah Top Leader</th>
                             <th>Jumlah Pegawai</th>
                             <th class="text-end">Aksi</th>
                         </tr>
@@ -36,6 +37,7 @@
                             <tr>
                                 <td>{{ $p->periode_label }}</td>
                                 <td>{{ $p->jumlah_ruangan }}</td>
+                                <td>{{ $p->jumlah_top_leader }}</td>
                                 <td>{{ $p->jumlah_pegawai }}</td>
                                 <td class="text-end">
                                     <a href="{{ route('management.index.scoring.show', $p->periode) }}"
@@ -69,6 +71,7 @@
                         <tr>
                             <th>Periode</th>
                             <th>Jumlah Ruangan</th>
+                            <th>Jumlah Top Leader</th>
                             <th class="text-end">Aksi</th>
                         </tr>
                     </thead>
@@ -77,6 +80,7 @@
                             <tr>
                                 <td>{{ $p->periode_label }}</td>
                                 <td>{{ $p->jumlah_ruangan }}</td>
+                                <td>{{ $p->jumlah_top_leader }}</td>
                                 <td class="text-end">
                                     <a href="{{ route('management.index.scoring.show', $p->periode) }}"
                                         class="btn btn-sm btn-outline-secondary">

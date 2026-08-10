@@ -33,6 +33,11 @@
                                     @endforeach
                                 </select>
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label">Gaji Pokok</label>
+                                <input type="number" name="gaji_pokok" class="form-control" placeholder="Gaji pokok (rupiah)"
+                                    value="{{ old('gaji_pokok', 0) }}" min="0" step="100000">
+                            </div>
                             <div class="mb-3 form-check form-switch">
                                 <input type="hidden" name="is_active" value="0">
                                 <input class="form-check-input" type="checkbox" name="is_active" value="1"
@@ -132,6 +137,11 @@
                                                                             {{ $label }}</option>
                                                                     @endforeach
                                                                 </select>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Gaji Pokok</label>
+                                                                <input type="number" name="gaji_pokok" class="form-control" placeholder="Gaji pokok (rupiah)"
+                                                                    value="{{ $topLeader->gaji_pokok ?? 0 }}" min="0" step="100000">
                                                             </div>
                                                             <div class="form-check form-switch">
                                                                 <input type="hidden" name="is_active" value="0">
