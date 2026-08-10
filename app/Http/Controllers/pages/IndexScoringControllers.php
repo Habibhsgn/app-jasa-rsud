@@ -136,8 +136,8 @@ class IndexScoringControllers extends Controller
                             'nama' => $p->nama ?? $row->pegawai_id,
                             'id_petugas' => $p->id_petugas ?? null,
 
-                            'gaji_pokok' => (int) $row->gaji_pokok,
-                            'gaji_pokok_display' => number_format((int) $row->gaji_pokok, 0, ',', '.'),
+                            'gaji_pokok' => (int) $p->gaji_pokok,
+                            'gaji_pokok_display' => number_format((int) $p->gaji_pokok, 0, ',', '.'),
 
                             'jabatan' => $row->jabatan,
                             'pendidikan_formal' => $row->pendidikan_formal,
@@ -250,19 +250,37 @@ class IndexScoringControllers extends Controller
                 ->with('error', 'Pengajuan ruangan ini untuk periode ' . $periode->format('F Y') . ' sedang terkunci dan tidak bisa diubah.');
         }
 
+
         DB::transaction(function () use ($request, $status, $periode) {
+
+            // Ambil seluruh data master pegawai yang dikirim
+            $pegawaiMaster = DB::table('pegawai')
+                ->whereIn(
+                    'id',
+                    collect($request->pegawai)->pluck('pegawai_id')
+                )
+                ->get()
+                ->keyBy('id');
 
             foreach ($request->pegawai as $pegawai) {
 
-                IndexScoring::updateOrCreate(
+                $pegawaiId = $pegawai['pegawai_id'];
 
+                // Ambil data gaji langsung dari tabel pegawai
+                $master = $pegawaiMaster->get($pegawaiId);
+
+                if (!$master) {
+                    continue;
+                }
+
+                IndexScoring::updateOrCreate(
                     [
-                        'pegawai_id' => $pegawai['pegawai_id'],
+                        'pegawai_id' => $pegawaiId,
                         'periode_pengajuan' => $periode,
                     ],
-
                     [
                         'ruangan_id' => $pegawai['ruangan_id'],
+
                         'jabatan' => $pegawai['jabatan'],
 
                         'pendidikan_formal' => $pegawai['pendidikan_formal'],
@@ -271,25 +289,34 @@ class IndexScoringControllers extends Controller
                             ? $pegawai['pendidikan_non_formal']
                             : 0,
 
-                        // Buang pemisah ribuan sebelum disimpan, pastikan integer murni
-                        'gaji_pokok' => (int) str_replace(['.', ','], '', $pegawai['gaji_pokok'] ?? 0),
+                        /*
+                 * Gaji pokok diambil langsung dari MASTER PEGAWAI.
+                 * Jangan mengambil dari input form.
+                 */
+                        'gaji_pokok' => (int) $master->gaji_pokok,
 
                         'risk' => $pegawai['risk'],
                         'emergency' => $pegawai['emergency'],
+
                         'cuti' => $pegawai['cuti'] ?: 0,
                         'izin' => $pegawai['izin'] ?: 0,
                         'tanpa_izin' => $pegawai['tanpa_izin'] ?: 0,
                         'telat' => $pegawai['telat'] ?: 0,
+
                         'sikap' => $pegawai['sikap'],
+
                         'jumlah' => $pegawai['jumlah'],
                         'jumlah_akhir' => $pegawai['jumlah_akhir'],
+
                         'keterangan' => $pegawai['keterangan'] ?? null,
+
                         'status_pengajuan' => $status,
                     ]
-
                 );
             }
         });
+
+
 
         return redirect()
             ->route('index.scoring.index')

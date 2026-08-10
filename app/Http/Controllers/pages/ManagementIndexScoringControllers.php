@@ -123,7 +123,7 @@ class ManagementIndexScoringControllers extends Controller
                         'jabatan' => $row->jabatan,
                         'pendidikan_formal' => $row->pendidikan_formal,
                         'pendidikan_non_formal' => $row->pendidikan_non_formal,
-                        'gaji_pokok' => number_format((int) $row->gaji_pokok, 0, ',', '.'),
+                        'gaji_pokok' => number_format((int) $master->gaji_pokok, 0, ',', '.'),
                         'risk' => $row->risk,
                         'emergency' => $row->emergency,
                         'cuti' => $row->cuti,
