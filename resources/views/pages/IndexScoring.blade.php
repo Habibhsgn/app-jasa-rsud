@@ -462,11 +462,19 @@
             let totalCutiIzin = cuti + izin;
             let pengurangCutiIzin = 0;
             if (totalCutiIzin > 0) {
-                if (totalCutiIzin < 4) pengurangCutiIzin = 8;
-                else if (totalCutiIzin <= 8) pengurangCutiIzin = 12;
-                else if (totalCutiIzin <= 12) pengurangCutiIzin = 30;
-                else pengurangCutiIzin = 50;
+                if (totalCutiIzin < 4) {
+                    pengurangCutiIzin = 8;
+                } else if (totalCutiIzin <= 8) {
+                    pengurangCutiIzin = 12;
+                } else if (totalCutiIzin <= 12) {
+                    pengurangCutiIzin = 30;
+                } else if (totalCutiIzin <= 22) {
+                    pengurangCutiIzin = 50;
+                } else {
+                    pengurangCutiIzin = 100;
+                }
             }
+
             persenPengurang += pengurangCutiIzin;
 
             // Tanpa Izin, mengikuti tabel rentang hari
