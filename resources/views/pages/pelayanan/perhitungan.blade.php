@@ -1,10 +1,10 @@
 @extends('layouts.app')
-@section('title', 'Perhitungan Top Leader')
+@section('title', 'Perhitungan Pelayanan')
 @section('content')
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div>
-            <h1 class="h3 mb-0"><strong>Perhitungan</strong> Top Leader</h1>
-            <p class="text-muted mb-0 small">Alokasi jasa untuk jajaran top leader berdasarkan bobot Index Scoring (periode
+            <h1 class="h3 mb-0"><strong>Perhitungan</strong> Pelayanan</h1>
+            <p class="text-muted mb-0 small">Alokasi jasa untuk staf pelayanan berdasarkan bobot Index Scoring (periode
                 klaim INA-CBG)</p>
         </div>
     </div>
@@ -56,7 +56,7 @@
                         <button type="submit" class="btn btn-primary flex-fill">
                             Filter
                         </button>
-                        <a href="{{ route('top-leader.perhitungan') }}" class="btn btn-outline-secondary flex-fill">
+                        <a href="{{ route('pelayanan.perhitungan') }}" class="btn btn-outline-secondary flex-fill">
                             Reset
                         </a>
                     </div>
@@ -90,10 +90,10 @@
             <div class="col-md-4 col-sm-6">
                 <div class="card h-100 border-0 shadow-sm border-start border-warning border-4">
                     <div class="card-body">
-                        <h6 class="text-muted mb-2 text-uppercase small">Total Top Leader ({{ $persenTopLeader }}%)</h6>
-                        <h4 class="mb-1">Rp {{ number_format($totalTopLeader, 0, ',', '.') }}</h4>
+                        <h6 class="text-muted mb-2 text-uppercase small">Total Pelayanan ({{ $persenStaff * 100 }}%)</h6>
+                        <h4 class="mb-1">Rp {{ number_format($totalPelayanan, 0, ',', '.') }}</h4>
                         <span class="badge text-bg-light text-muted fw-normal">Nilai Persen Jasa &times;
-                            {{ $persenTopLeader }}%</span>
+                            {{ $persenStaff * 100 }}%</span>
                     </div>
                 </div>
             </div>
@@ -106,7 +106,7 @@
                     <div class="col-md-8">
                         <h6 class="mb-1">Total Bobot Index Scoring (Jumlah Akhir)</h6>
                         @if ($totalBobot > 0)
-                            <p class="mb-0 text-muted small">Penjumlahan <strong>Jumlah Akhir</strong> dari semua Top Leader
+                            <p class="mb-0 text-muted small">Penjumlahan <strong>Jumlah Akhir</strong> dari semua Pegawai
                                 yang status <span class="badge bg-primary">Selesai</span> pada periode ini</p>
                         @else
                             <p class="mb-0 text-warning"><i class="bi bi-exclamation-triangle me-1"></i> <strong>Index
@@ -145,7 +145,12 @@
                             <tbody>
                                 @foreach ($calculations as $posisi => $data)
                                     <tr>
-                                        <td><strong>{{ $posisi }}</strong></td>
+                                        <td>
+                                            <strong>{{ $posisi }}</strong>
+                                            @if ($data['is_medis_paramedis'] ?? false)
+                                                <span class="badge text-bg-info ms-2">Akan dipecah</span>
+                                            @endif
+                                        </td>
                                         <td class="text-end">{{ number_format($data['total_bobot'], 2, ',', '.') }}</td>
                                         <td class="text-end">
                                             <div class="progress" style="height: 6px; width: 100px;">
@@ -160,14 +165,21 @@
                                         <td class="text-end"><strong>Rp
                                                 {{ number_format($data['alokasi_total'], 0, ',', '.') }}</strong></td>
                                         <td class="text-center">
-                                            @if ($data['jumlah_orang'] > 0)
+                                            @if ($data['is_medis_paramedis'])
+                                                <span class="text-muted fw-bold">-</span>
+                                            @elseif ($data['jumlah_orang'] > 0)
                                                 <span
                                                     class="badge rounded-pill text-bg-success">{{ $data['jumlah_orang'] }}</span>
                                             @else
                                                 <span class="badge rounded-pill text-bg-warning">Kosong</span>
                                             @endif
                                         </td>
-                                        <td class="text-end">Rp {{ number_format($data['per_orang_rata'], 0, ',', '.') }}
+                                        <td class="text-end">
+                                            @if ($data['is_medis_paramedis'])
+                                                <span class="text-muted fw-bold">-</span>
+                                            @else
+                                                Rp {{ number_format($data['per_orang_rata'], 0, ',', '.') }}
+                                            @endif
                                         </td>
                                     </tr>
                                 @endforeach
@@ -177,7 +189,7 @@
                                     <th>TOTAL</th>
                                     <th class="text-end">{{ number_format($totalBobot, 2, ',', '.') }}</th>
                                     <th class="text-end">100%</th>
-                                    <th class="text-end">Rp {{ number_format($totalTopLeader, 0, ',', '.') }}</th>
+                                    <th class="text-end">Rp {{ number_format($totalPelayanan, 0, ',', '.') }}</th>
                                     <th></th>
                                     <th></th>
                                 </tr>
@@ -187,10 +199,10 @@
                 </div>
             </div>
 
-            <!-- Detail Per Orang - Grouped by Posisi with Collapse -->
+            <!-- Detail Per Orang - Grouped by Ruangan with Collapse -->
             <div class="mt-4">
                 @foreach ($calculations as $posisi => $data)
-                    @if (!empty($data['detail_by_posisi']))
+                    @if (!$data['is_medis_paramedis'] && !empty($data['detail_by_ruangan']))
                         <div class="card mb-3 shadow-sm">
                             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                                 <h5 class="mb-0">Detail Alokasi - {{ $posisi }}</h5>
@@ -203,18 +215,18 @@
                                 </button>
                             </div>
                             <div class="card-body p-0">
-                                @foreach ($data['detail_by_posisi'] as $posisiKey => $anggota)
+                                @foreach ($data['detail_by_ruangan'] as $ruanganNama => $anggota)
                                     <div class="border-bottom">
-                                        <!-- Posisi Header (Collapsible) -->
+                                        <!-- Ruangan Header (Collapsible) -->
                                         <div class="bg-light p-3">
                                             <button type="button"
                                                     class="btn btn-link text-decoration-none text-dark fw-bold d-flex justify-content-between align-items-center w-100"
                                                     data-bs-toggle="collapse"
-                                                    data-bs-target="#collapse-{{ str_replace([' ', '/', '.'], '_', $posisi) }}-{{ str_replace([' ', '/', '.'], '_', $posisiKey) }}"
+                                                    data-bs-target="#collapse-{{ str_replace([' ', '/', '.'], '_', $posisi) }}-{{ str_replace([' ', '/', '.'], '_', $ruanganNama) }}"
                                                     aria-expanded="true">
                                                 <span>
                                                     <i class="bi bi-chevron-down me-2 collapse-icon"></i>
-                                                    {{ $posisiKey }}
+                                                    {{ $ruanganNama }}
                                                     <span class="badge text-bg-primary ms-2">{{ count($anggota) }} Orang</span>
                                                 </span>
                                                 <span class="text-muted small">
@@ -223,9 +235,9 @@
                                             </button>
                                         </div>
 
-                                        <!-- Posisi Detail Table (Collapsible Content) -->
+                                        <!-- Ruangan Detail Table (Collapsible Content) -->
                                         <div class="collapse show"
-                                             id="collapse-{{ str_replace([' ', '/', '.'], '_', $posisi) }}-{{ str_replace([' ', '/', '.'], '_', $posisiKey) }}">
+                                             id="collapse-{{ str_replace([' ', '/', '.'], '_', $posisi) }}-{{ str_replace([' ', '/', '.'], '_', $ruanganNama) }}">
                                             <div class="table-responsive">
                                                 <table class="table table-hover align-middle mb-0">
                                                     <thead class="table-light">
@@ -233,6 +245,7 @@
                                                             <th>#</th>
                                                             <th>Nama</th>
                                                             <th>Posisi</th>
+                                                            <th>Bidang</th>
                                                             <th class="text-end">Gaji</th>
                                                             <th class="text-end">Bobot</th>
                                                             <th class="text-end">% Bobot</th>
@@ -241,10 +254,22 @@
                                                     </thead>
                                                     <tbody>
                                                         @foreach ($anggota as $i => $a)
-                                                            <tr>
+                                                            <tr class="{{ $a['ruangan_belum_di_set'] ? 'table-warning' : '' }}">
                                                                 <td>{{ $i + 1 }}</td>
                                                                 <td><strong>{{ $a['nama'] }}</strong></td>
                                                                 <td><span class="badge text-bg-info">{{ $a['posisi'] }}</span></td>
+                                                                <td>
+                                                                    @if ($a['ruangan_belum_di_set'])
+                                                                        <span class="text-warning fw-bold">
+                                                                            <i class="bi bi-exclamation-triangle me-1"></i>
+                                                                            Ruangan belum di-set bidang
+                                                                        </span>
+                                                                    @elseif ($a['bidang'])
+                                                                        <span class="badge text-bg-primary">{{ $a['bidang'] }}</span>
+                                                                    @else
+                                                                        <span class="text-muted">-</span>
+                                                                    @endif
+                                                                </td>
                                                                 <td class="text-end">Rp {{ number_format($a['gaji_pokok'], 0, ',', '.') }}</td>
                                                                 <td class="text-end">{{ number_format($a['jumlah_akhir'], 2, ',', '.') }}</td>
                                                                 <td class="text-end">
@@ -268,7 +293,7 @@
                                                     </tbody>
                                                     <tfoot class="table-light">
                                                         <tr>
-                                                            <th colspan="5" class="text-end">Sub Total {{ $posisiKey }}</th>
+                                                            <th colspan="6" class="text-end">Sub Total {{ $ruanganNama }}</th>
                                                             <th class="text-end">{{ number_format(array_sum(array_column($anggota, 'bobot_persen_posisi')), 2, ',', '.') }}%</th>
                                                             <th class="text-end"><strong>Rp {{ number_format(array_sum(array_column($anggota, 'alokasi')), 0, ',', '.') }}</strong></th>
                                                         </tr>
@@ -284,12 +309,31 @@
                 @endforeach
             </div>
 
+            <!-- Catatan Medis & Paramedis -->
+            @if (isset($calculations['Medis & Paramedis']) && $calculations['Medis & Paramedis']['is_medis_paramedis'])
+                <div class="card mt-4 shadow-sm border-start border-info border-4">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-info-circle-fill fs-4 text-info me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Medis & Paramedis</h6>
+                                <p class="mb-0 text-muted">
+                                    Alokasi total: <strong>Rp {{ number_format($calculations['Medis & Paramedis']['alokasi_total'], 0, ',', '.') }}</strong>
+                                    <br class="d-none d-md-block">
+                                    Bidang ini akan dipecah lebih detail di halaman terpisah (mengikuti struktur ruangan/bidang).
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
         @else
             <div class="card mt-4 shadow-sm border-start border-warning border-4">
                 <div class="card-body text-center py-5">
                     <i class="bi bi-exclamation-triangle fs-1 text-warning mb-3"></i>
                     <h5 class="mb-2">Index Scoring Belum Diajukan</h5>
-                    <p class="text-muted mb-3">Belum ada data Index Scoring Top Leader dengan status <span
+                    <p class="text-muted mb-3">Belum ada data Index Scoring Pegawai dengan status <span
                             class="badge bg-primary">Selesai</span> untuk periode ini.</p>
                     <p class="text-muted mb-0">Silakan isi Index Scoring terlebih dahulu agar alokasi per individu dapat
                         dihitung.</p>
@@ -300,7 +344,7 @@
         <!-- Rumus Perhitungan -->
         <div class="card mt-4 shadow-sm">
             <div class="card-header bg-white">
-                <h5 class="mb-0">Cara Perhitungan (Baru - Berbasis Index Scoring)</h5>
+                <h5 class="mb-0">Cara Perhitungan (Berdasarkan Index Scoring)</h5>
             </div>
             <div class="card-body">
                 <ol class="mb-0">
@@ -324,27 +368,26 @@
                         <code>persen_jasa</code>).
                     </li>
                     <li class="mb-2">
-                        <strong>Total Top Leader</strong> &mdash; Nilai Persen Jasa di atas dikalikan lagi
-                        {{ $persenTopLeader }}% (diatur lewat pengaturan <code>persen_jasa_top_leader</code>).
-                        Angka inilah yang menjadi dana yang akan dibagi ke seluruh jajaran top leader.
+                        <strong>Total Pelayanan</strong> &mdash; Nilai Persen Jasa di atas dikalikan lagi
+                        {{ $persenStaff * 100 }}% (diatur lewat pengaturan <code>persen_jasa_staff</code>).
+                        Angka inilah yang menjadi dana yang akan dibagi ke seluruh staf pelayanan.
                     </li>
                     <li class="mb-2">
-                        <strong>Bobot Index Scoring</strong> &mdash; Ambil data <strong>Index Scoring</strong> semua Top Leader
+                        <strong>Bobot Index Scoring</strong> &mdash; Ambil data <strong>Index Scoring</strong> semua Pegawai
                         yang status <span class="badge bg-primary">Selesai</span> pada periode yang sama.
                         Kolom <strong>Jumlah Akhir</strong> menjadi bobot masing-masing individu.
                     </li>
                     <li class="mb-2">
-                        <strong>Total Bobot</strong> &mdash; Penjumlahan Jumlah Akhir semua Top Leader.
+                        <strong>Total Bobot</strong> &mdash; Penjumlahan Jumlah Akhir semua Pegawai.
                     </li>
                     <li class="mb-2">
-                        <strong>Alokasi per Individu</strong> &mdash; <code>(Jumlah Akhir Individu / Total Bobot) &times; Total Top
-                            Leader</code>.
-                        <br>Contoh: Kabid A (11.2) + Kabid B (10) = Total 21.2 &rarr; Pool 65.000.000
+                        <strong>Alokasi per Individu</strong> &mdash; <code>(Jumlah Akhir Individu / Total Bobot) &times; Total Pelayanan</code>.
+                        <br>Contoh: Staf A (11.2) + Staf B (10) = Total 21.2 &rarr; Pool 65.000.000
                         <br>A dapat: 11.2/21.2 &times; 65.000.000 = <strong>34.339.623</strong>
                         <br>B dapat: 10/21.2 &times; 65.000.000 = <strong>30.660.377</strong>
                     </li>
                     <li>
-                        <strong>Catatan:</strong> Top Leader yang belum punya Index Scoring "Selesai" pada periode ini
+                        <strong>Catatan:</strong> Pegawai yang belum punya Index Scoring "Selesai" pada periode ini
                         mendapat bobot 0 (tidak mendapat alokasi).
                     </li>
                 </ol>
