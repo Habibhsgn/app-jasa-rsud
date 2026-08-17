@@ -325,59 +325,30 @@ class LaporanIndexScoringController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $buildRow = function (
-            $row,
-            int $number
-        ) {
+        $buildRow = function ($row, int $number) {
             return [
                 $number,
-
                 $row->pegawai?->nama ?? '-',
-
-                /*
-                |--------------------------------------------------------------------------
-                | NIP/NIP3K
-                |--------------------------------------------------------------------------
-                |
-                | Disimpan sebagai string agar Excel tidak mengubah
-                | angka panjang menjadi scientific notation.
-                |
-                */
-
                 $row->pegawai?->id_petugas !== null
                     ? (string) $row->pegawai->id_petugas
                     : '-',
-
                 $row->jabatan ?? '-',
-
                 $row->pendidikan_formal ?? '-',
-
                 $row->pendidikan_non_formal ?? 0,
-
                 (float) (
-                    $row->gaji_pokok ?? 0
+                    $row->pegawai?->gaji_pokok ?? 0
                 ),
-
                 $row->risk ?? 0,
-
                 $row->emergency ?? 0,
-
                 $row->cuti ?? 0,
-
                 $row->izin ?? 0,
-
                 $row->tanpa_izin ?? 0,
-
                 $row->telat ?? 0,
-
                 $row->sikap ?? 0,
-
                 (float) (
                     $row->jumlah ?? 0
                 ),
-
                 $row->keterangan ?: '-',
-
                 (float) (
                     $row->jumlah_akhir ?? 0
                 ),

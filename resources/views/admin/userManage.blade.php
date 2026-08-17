@@ -28,6 +28,7 @@
                                         <th class="d-none d-xl-table-cell">Email</th>
                                         <th>Role</th>
                                         <th class="d-none d-md-table-cell">Ruangan</th>
+                                        <th class="d-none d-md-table-cell">Bidang</th>
                                         <th>Status</th>
                                         <th class="text-end">Aksi</th>
                                         <th>Ubah Role</th>
@@ -56,6 +57,9 @@
                                             </td>
                                             <td class="d-none d-md-table-cell">
                                                 {{ $user->ruangan->nama_ruangan ?? '-' }}
+                                            </td>
+                                            <td class="d-none d-md-table-cell">
+                                                {{ $user->master_bidang->nama_bidang ?? '-' }}
                                             </td>
                                             <td>
                                                 @if ($user->is_active)
