@@ -128,6 +128,9 @@ class TopLeaderCalculationService
 
             $perOrang = $jumlahOrang > 0 ? $alokasiPosisi / $jumlahOrang : 0; // rata-rata untuk display
 
+            // Group by posisi for detail view (each posisi is already a group)
+            $detailByPosisi = [$posisi => $anggota];
+
             $calculations[$posisi] = [
                 'persen' => $persenPosisi * 100,
                 'alokasi_total' => round($alokasiPosisi, 2),
@@ -135,9 +138,10 @@ class TopLeaderCalculationService
                 'per_orang_rata' => round($perOrang, 2),
                 'total_bobot' => round($totalBobotPosisi, 2),
                 'anggota' => $anggota,
+                'detail_by_posisi' => $detailByPosisi,
             ];
 
-            // Flat list for detail view
+            // Flat list for detail view (fallback)
             foreach ($anggota as $a) {
                 $detailPerOrang[] = $a;
             }

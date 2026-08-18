@@ -18,6 +18,7 @@ use App\Http\Controllers\pages\InacbgController;
 use App\Http\Controllers\admin\SettingController;
 use App\Http\Controllers\admin\TopLeaderController;
 use App\Http\Controllers\pages\TopLeaderCalculationController;
+use App\Http\Controllers\pages\PelayananCalculationController;
 use App\Http\Controllers\pages\MasterBidangController;
 use App\Http\Controllers\pages\LaporanIndexScoringController;
 
@@ -308,6 +309,10 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
     Route::middleware(['permission:topleader.index'])->prefix('top-leader')->name('top-leader.')->group(function () {
         Route::get('/perhitungan', [TopLeaderCalculationController::class, 'index'])->name('perhitungan');
+    });
+
+    Route::middleware(['permission:pelayanan.index'])->prefix('pelayanan')->name('pelayanan.')->group(function () {
+        Route::get('/perhitungan', [PelayananCalculationController::class, 'index'])->name('perhitungan');
     });
 
 
