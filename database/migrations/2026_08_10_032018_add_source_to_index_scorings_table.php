@@ -95,14 +95,6 @@ return new class extends Migration {
                     ->references('id')->on('ruangan')->nullOnDelete();
             }
         });
-
-        // 8. Tambah FK source_id -> top_leaders (hanya kalau belum ada)
-        Schema::table($table, function (Blueprint $t) use ($fkExists) {
-            if (!$fkExists('index_scorings_source_id_foreign')) {
-                $t->foreign('source_id', 'index_scorings_source_id_foreign')
-                    ->references('id')->on('top_leaders')->nullOnDelete();
-            }
-        });
     }
 
     public function down(): void
