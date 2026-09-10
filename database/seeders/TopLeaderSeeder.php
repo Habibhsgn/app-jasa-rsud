@@ -13,15 +13,34 @@ class TopLeaderSeeder extends Seeder
     public function run(): void
     {
         $topLeaders = [
-            ['nama' => 'Dr. Ahmad Sudirman', 'posisi' => 'Direktur', 'is_active' => true],
-            ['nama' => 'Dr. Siti Rahayu', 'posisi' => 'Kabid', 'is_active' => true],
-            ['nama' => 'Dr. Budi Santoso', 'posisi' => 'Kasie', 'is_active' => true],
-            ['nama' => 'Dra. Maya Sari', 'posisi' => 'Kasie', 'is_active' => true],
-            ['nama' => 'Ir. Dedi Kusuma', 'posisi' => 'Bendahara', 'is_active' => true],
-            ['nama' => 'Dr. Andi Wijaya', 'posisi' => 'Casemix', 'is_active' => true],
-            ['nama' => 'Dr. Rina Marlina', 'posisi' => 'Costing', 'is_active' => true],
-        ];
+            // Direktur (1)
+            ['nama' => 'Dr. Ahmad Sudirman', 'posisi' => 'Direktur', 'gaji_pokok' => 5000000, 'is_active' => true],
 
+            // Kabid (2)
+            ['nama' => 'Dr. Siti Rahayu', 'posisi' => 'Kabid', 'gaji_pokok' => 4500000, 'is_active' => true],
+            ['nama' => 'Dr. Hendra Gunawan', 'posisi' => 'Kabid', 'gaji_pokok' => 4500000, 'is_active' => true],
+
+            // Kasie (3)
+            ['nama' => 'Dr. Budi Santoso', 'posisi' => 'Kasie', 'gaji_pokok' => 4000000, 'is_active' => true],
+            ['nama' => 'Dra. Maya Sari', 'posisi' => 'Kasie', 'gaji_pokok' => 4000000, 'is_active' => true],
+            ['nama' => 'Eko Prasetyo, S.Kom', 'posisi' => 'Kasie', 'gaji_pokok' => 4000000, 'is_active' => true],
+
+            // Bendahara (3)
+            ['nama' => 'Ir. Dedi Kusuma', 'posisi' => 'Bendahara', 'gaji_pokok' => 3500000, 'is_active' => true],
+            ['nama' => 'Rina Astuti, S.E.', 'posisi' => 'Bendahara', 'gaji_pokok' => 3500000, 'is_active' => true],
+            ['nama' => 'Agus Hermawan, A.Md', 'posisi' => 'Bendahara', 'gaji_pokok' => 3500000, 'is_active' => true],
+
+            // Casemix (3)
+            ['nama' => 'Dr. Andi Wijaya', 'posisi' => 'Casemix', 'gaji_pokok' => 3250000, 'is_active' => true],
+            ['nama' => 'Fitriani, S.Kep', 'posisi' => 'Casemix', 'gaji_pokok' => 3250000, 'is_active' => true],
+            ['nama' => 'Bambang Utomo, S.K.M.', 'posisi' => 'Casemix', 'gaji_pokok' => 3250000, 'is_active' => true],
+
+            // Costing (4)
+            ['nama' => 'Dr. Rina Marlina', 'posisi' => 'Costing', 'gaji_pokok' => 3000000, 'is_active' => true],
+            ['nama' => 'Dewi Lestari, S.E.', 'posisi' => 'Costing', 'gaji_pokok' => 3000000, 'is_active' => true],
+            ['nama' => 'Fajar Nugraha, S.E.', 'posisi' => 'Costing', 'gaji_pokok' => 3000000, 'is_active' => true],
+            ['nama' => 'Indah Permata, A.Md.Ak', 'posisi' => 'Costing', 'gaji_pokok' => 3000000, 'is_active' => true],
+        ];
         foreach ($topLeaders as $tl) {
             TopLeader::create($tl);
         }

@@ -18,6 +18,7 @@ use App\Http\Controllers\pages\InacbgController;
 use App\Http\Controllers\admin\SettingController;
 use App\Http\Controllers\admin\TopLeaderController;
 use App\Http\Controllers\pages\TopLeaderCalculationController;
+use App\Http\Controllers\pages\PelayananCalculationController;
 use App\Http\Controllers\pages\MasterBidangController;
 use App\Http\Controllers\pages\LaporanIndexScoringController;
 
@@ -152,10 +153,10 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
         Route::get('/review-index-scoring/{periode}', [ManagementIndexScoringControllers::class, 'show'])
             ->name('management.index.scoring.show');
 
-        Route::post('/review-index-scoring/{periode}/{ruangan}/approve', [ManagementIndexScoringControllers::class, 'approve'])
+        Route::post('/review-index-scoring/{periode}/{id}/approve/{sourceType?}', [ManagementIndexScoringControllers::class, 'approve'])
             ->name('management.index.scoring.approve');
 
-        Route::post('/review-index-scoring/{periode}/{ruangan}/revisi', [ManagementIndexScoringControllers::class, 'revisi'])
+        Route::post('/review-index-scoring/{periode}/{id}/revisi/{sourceType?}', [ManagementIndexScoringControllers::class, 'revisi'])
             ->name('management.index.scoring.revisi');
     });
 
@@ -280,6 +281,7 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
     Route::middleware(['permission:inacbg.index'])->prefix('inacbg')->name('inacbg.')->group(function () {
         Route::get('/', [InacbgController::class, 'index'])->name('index');
         Route::post('/import', [InacbgController::class, 'import'])->name('import');
+        Route::get('/export', [InacbgController::class, 'export'])->name('export');
         Route::get('/{inacbgClaim}', [InacbgController::class, 'show'])->name('show');
         Route::put('/{inacbgClaim}/status', [InacbgController::class, 'updateStatus'])->name('update-status');
     });
@@ -308,6 +310,10 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
     Route::middleware(['permission:topleader.index'])->prefix('top-leader')->name('top-leader.')->group(function () {
         Route::get('/perhitungan', [TopLeaderCalculationController::class, 'index'])->name('perhitungan');
+    });
+
+    Route::middleware(['permission:pelayanan.index'])->prefix('pelayanan')->name('pelayanan.')->group(function () {
+        Route::get('/perhitungan', [PelayananCalculationController::class, 'index'])->name('perhitungan');
     });
 
 

@@ -128,9 +128,33 @@
 
     {{-- [ Filter & Search ] start --}}
     <div class="card mb-4">
+        <div class="card-header bg-white">
+            <h6 class="mb-0 text-muted">Filter Periode</h6>
+        </div>
         <div class="card-body">
-            <form method="GET" action="{{ route('inacbg.index') }}" class="row align-items-end g-3">
+            <form method="GET" action="{{ route('inacbg.index') }}" class="row g-3 align-items-end">
                 <div class="col-md-3">
+                    <label class="form-label">Bulan</label>
+                    <select name="bulan" class="form-select" onchange="this.form.submit()">
+                        <option value="">Semua Bulan</option>
+                        @for ($i = 1; $i <= 12; $i++)
+                            <option value="{{ $i }}" {{ $bulan == $i ? 'selected' : '' }}>
+                                {{ \Carbon\Carbon::create()->month($i)->locale('id')->translatedFormat('F') }}
+                            </option>
+                        @endfor
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Tahun</label>
+                    <select name="tahun" class="form-select" onchange="this.form.submit()">
+                        <option value="">Semua Tahun</option>
+                        @foreach ($availableYears as $y)
+                            <option value="{{ $y }}" {{ $tahun == $y ? 'selected' : '' }}>{{ $y }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-md-2">
                     <label class="form-label fw-bold">Filter Status</label>
                     <select name="status" class="form-select" onchange="this.form.submit()">
                         <option value="">Semua Status</option>
@@ -138,7 +162,7 @@
                         <option value="disetujui" {{ request('status') == 'disetujui' ? 'selected' : '' }}>Disetujui</option>
                     </select>
                 </div>
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <label class="form-label fw-bold">Cari</label>
                     <div class="input-group">
                         <input type="text" name="search" class="form-control"
@@ -146,20 +170,27 @@
                         <button class="btn btn-outline-secondary" type="submit">
                             Cari
                         </button>
-                        @if (request('search'))
-                            <a href="{{ route('inacbg.index') }}" class="btn btn-outline-danger">
-                                &times;
-                            </a>
-                        @endif
+                        <a href="{{ route('inacbg.index') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-clockwise me-1"></i> Reset
+                        </a>
                     </div>
                 </div>
-                <div class="col-md-4 text-md-end mt-3 mt-md-0">
-                    <span class="text-muted small">
-                        Menampilkan {{ $claims->firstItem() ?? 0 }} - {{ $claims->lastItem() ?? 0 }}
-                        dari {{ $claims->total() }} data
-                    </span>
+                <div class="col-md-1">
+                    <label class="form-label invisible d-none d-md-block">&nbsp;</label>
+                    <a href="{{ route('inacbg.export', request()->query()) }}" class="btn btn-success w-100">
+                        <i class="bi bi-download me-1"></i> Export
+                    </a>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="text-muted small">
+                Menampilkan {{ $claims->firstItem() ?? 0 }} - {{ $claims->lastItem() ?? 0 }}
+                dari {{ $claims->total() }} data
+            </div>
         </div>
     </div>
     {{-- [ Filter & Search ] end --}}

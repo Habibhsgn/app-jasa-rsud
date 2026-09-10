@@ -31,6 +31,7 @@ class RolePermissionMenuSeeder extends Seeder
             ['code' => 'user',          'name' => 'User Management',        'order' => 6],
             ['code' => 'setting',       'name' => 'Setting',                'order' => 7],
             ['code' => 'top-leader',    'name' => 'Top Leader',             'order' => 8],
+            ['code' => 'pelayanan',     'name' => 'Pelayanan',              'order' => 9],
         ];
 
         foreach ($modules as $m) {
@@ -50,6 +51,7 @@ class RolePermissionMenuSeeder extends Seeder
             ['code' => 'management.index.scoring.index',         'name' => 'Verifikasi Jasa (Review Index)', 'module' => 'jasa'],
 
             ['code' => 'inacbg.index',                           'name' => 'INA-CBG',                        'module' => 'inacbg'],
+            ['code' => 'inacbg.export',                          'name' => 'Export INA-CBG',               'module' => 'inacbg'],
 
             ['code' => 'laporan.jasa.index',                     'name' => 'Laporan Jasa',                   'module' => 'laporan'],
 
@@ -64,6 +66,7 @@ class RolePermissionMenuSeeder extends Seeder
             ['code' => 'rbac.manage',                            'name' => 'Kelola Role & Akses',            'module' => 'setting'],
             ['code' => 'topleader.index',                        'name' => 'Top Leader (Perhitungan)',     'module' => 'top-leader'],
             ['code' => 'topleader.manage',                       'name' => 'Manajemen Top Leader',           'module' => 'top-leader'],
+            ['code' => 'pelayanan.index',                        'name' => 'Pelayanan (Perhitungan)',        'module' => 'pelayanan'],
         ];
 
         foreach ($permissions as $p) {
@@ -95,7 +98,7 @@ class RolePermissionMenuSeeder extends Seeder
             ],
             'manajemen' => [
                 'name' => 'Manajemen',
-                'permissions' => ['dashboard', 'management.index.scoring.index', 'laporan.jasa.index', 'topleader.index'],
+                'permissions' => ['dashboard', 'management.index.scoring.index', 'laporan.jasa.index', 'topleader.index', 'pelayanan.index'],
             ],
         ];
 
@@ -131,6 +134,7 @@ class RolePermissionMenuSeeder extends Seeder
                     ['name' => 'Index Scoring', 'icon' => 'dollar-sign', 'route' => 'index.scoring.index', 'permissions' => ['index.scoring.index']],
                     ['name' => 'INA-CBG', 'icon' => 'file-text', 'route' => 'inacbg.index', 'permissions' => ['inacbg.index']],
                     ['name' => 'Top Leader', 'icon' => 'users', 'route' => 'top-leader.perhitungan', 'permissions' => ['topleader.index']],
+                    ['name' => 'Pelayanan', 'icon' => 'users', 'route' => 'pelayanan.perhitungan', 'permissions' => ['pelayanan.index']],
                 ],
             ],
             [
