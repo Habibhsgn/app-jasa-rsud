@@ -46,6 +46,7 @@
 
     @yield('modals')
 
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     {{-- Scripts --}}
     @include('components.script')
 
@@ -53,6 +54,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous">
     </script>
+
 
     <!-- GLOBAL MINI MODAL -->
     <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
@@ -91,11 +93,6 @@
             }, 3000);
         }
     </script>
-
-    {{-- Bootstrap JS Bundle (CDN) - termasuk Popper, dibutuhkan utk modal/dropdown/tooltip --}}
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
-        crossorigin="anonymous"></script>
 
     @stack('scripts')
 </body>

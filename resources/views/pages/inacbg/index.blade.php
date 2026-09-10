@@ -234,7 +234,7 @@
                                             class="btn btn-sm btn-outline-primary" title="Detail">
                                             Detail
                                         </a>
-                                        @if ($claim->status == 'pending')
+                                        {{-- @if ($claim->status == 'pending')
                                             <form action="{{ route('inacbg.update-status', $claim) }}" method="POST"
                                                 class="d-inline" onsubmit="return confirm('Setujui klaim ini?')">
                                                 @csrf
@@ -257,7 +257,7 @@
                                                     Pending-kan
                                                 </button>
                                             </form>
-                                        @endif
+                                        @endif --}}
                                     </div>
                                 </td>
                             </tr>
