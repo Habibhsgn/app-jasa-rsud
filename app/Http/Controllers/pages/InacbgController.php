@@ -9,6 +9,8 @@ use App\Services\FeedbackPdfService;
 use App\Services\JasaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\InacbgExport;
 
 class InacbgController extends Controller
 {
@@ -215,5 +217,61 @@ class InacbgController extends Controller
 
         return redirect()->route('inacbg.index')
             ->with('success', "Status berhasil diperbarui menjadi {$request->status}.");
+    }
+
+    public function export(Request $request)
+    {
+        $query = InacbgClaim::query();
+
+        // Filter by status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter by month
+        $bulan = $request->filled('bulan') ? $request->integer('bulan') : null;
+        if ($bulan) {
+            $query->whereMonth('discharge_date', $bulan);
+        }
+
+        // Filter by year
+        $tahun = $request->filled('tahun') ? $request->integer('tahun') : null;
+        if ($tahun) {
+            $query->whereYear('discharge_date', $tahun);
+        }
+
+        // Search by SEP, MRN, or Nama
+        if ($request->filled('search')) {
+            $s = $request->search;
+            $query->where(function ($q) use ($s) {
+                $q->where('sep', 'like', "%{$s}%")
+                    ->orWhere('mrn', 'like', "%{$s}%")
+                    ->orWhere('nama_pasien', 'like', "%{$s}%")
+                    ->orWhere('inacbg', 'like', "%{$s}%");
+            });
+        }
+
+        // Sort by dpjp
+        $query->orderBy('dpjp', 'asc');
+
+        $claims = $query->get();
+
+        // Generate filename with month and year
+        if ($bulan && $tahun) {
+            $namaBulan = \Carbon\Carbon::create()->month($bulan)->locale('id')->translatedFormat('F');
+            $filename = 'INA-CBG_EXPORT_' . strtoupper($namaBulan) . '_' . $tahun;
+        } elseif ($bulan) {
+            $namaBulan = \Carbon\Carbon::create()->month($bulan)->locale('id')->translatedFormat('F');
+            $filename = 'INA-CBG_EXPORT_' . strtoupper($namaBulan) . '_' . now()->year;
+        } elseif ($tahun) {
+            $filename = 'INA-CBG_EXPORT_SEMUA_BULAN_' . $tahun;
+        } else {
+            $filename = 'INA-CBG_EXPORT_' . now()->format('Ymd_His');
+        }
+
+        return Excel::download(
+            new InacbgExport($claims),
+            $filename . '.xlsx'
+        );
     }
 }

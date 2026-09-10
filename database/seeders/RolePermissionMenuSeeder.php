@@ -51,6 +51,7 @@ class RolePermissionMenuSeeder extends Seeder
             ['code' => 'management.index.scoring.index',         'name' => 'Verifikasi Jasa (Review Index)', 'module' => 'jasa'],
 
             ['code' => 'inacbg.index',                           'name' => 'INA-CBG',                        'module' => 'inacbg'],
+            ['code' => 'inacbg.export',                          'name' => 'Export INA-CBG',               'module' => 'inacbg'],
 
             ['code' => 'laporan.jasa.index',                     'name' => 'Laporan Jasa',                   'module' => 'laporan'],
 
