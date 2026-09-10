@@ -166,6 +166,7 @@
                                 <th>Jabatan</th>
                                 <th>Resiko</th>
                                 <th>Emergency</th>
+                                <th>Gaji Pokok</th>
                                 <th width="20%" class="text-center">Aksi</th>
                             </tr>
                         </thead>
@@ -190,6 +191,8 @@
                                     <td>{{ $p->jabatan }}</td>
                                     <td>{{ $p->risk }}</td>
                                     <td>{{ $p->emergency }}</td>
+                                    <td>Rp
+                                            {{ number_format($p->gaji_pokok  ?? 0, 0, ',', '.') }}</td>
 
                                     <td class="text-center">
 

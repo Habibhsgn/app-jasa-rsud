@@ -251,7 +251,7 @@
 
                                         <td class="text-end">
                                             Rp
-                                            {{ number_format($p->gaji_pokok ?? 0, 0, ',', '.') }}
+                                            {{ number_format($p->pegawai?->gaji_pokok  ?? 0, 0, ',', '.') }}
                                         </td>
 
                                         <td class="text-center">
