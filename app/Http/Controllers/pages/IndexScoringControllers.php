@@ -21,10 +21,23 @@ class IndexScoringControllers extends Controller
 
     /**
      * Tampilkan semua periode yang masih aktif (belum "selesai").
+     *
+     * PENTING: untuk user non-admin, daftar periode WAJIB difilter berdasarkan
+     * ruangan_id miliknya sendiri. Kalau tidak difilter, periode yang dibuat/
+     * disimpan oleh ruangan lain akan ikut muncul (dan ikut men-generate form
+     * kosong) di halaman ruangan yang tidak bersangkutan.
      */
     public function index()
     {
-        $periodeList = IndexScoring::where('status_pengajuan', '!=', 'selesai')
+        $user = Auth::user();
+
+        $periodeQuery = IndexScoring::where('status_pengajuan', '!=', 'selesai');
+
+        if ($user->role?->code != 'admin') {
+            $periodeQuery->where('ruangan_id', $user->ruangan_id);
+        }
+
+        $periodeList = $periodeQuery
             ->distinct()
             ->orderBy('periode_pengajuan')
             ->pluck('periode_pengajuan');
@@ -36,8 +49,13 @@ class IndexScoringControllers extends Controller
 
     /**
      * Buat pengajuan baru untuk 1 periode.
-     * Jika periode itu sudah ada, tolak dan arahkan balik ke daftar (form lama tetap tampil).
-     * Jika periode baru, tambahkan sebagai kartu terpisah di bawah periode-periode lain.
+     * Jika periode itu sudah ada UNTUK RUANGAN INI (non-admin), tolak dan arahkan
+     * balik ke daftar (form lama tetap tampil). Jika periode baru, tambahkan
+     * sebagai kartu terpisah di bawah periode-periode lain.
+     *
+     * Sama seperti index(), daftar periode di sini juga WAJIB difilter per
+     * ruangan_id untuk non-admin, supaya generate periode oleh ruangan lain
+     * tidak "bocor" ke ruangan yang sedang login.
      */
     public function create(Request $request)
     {
@@ -45,9 +63,16 @@ class IndexScoringControllers extends Controller
             'periode' => ['required'],
         ]);
 
+        $user = Auth::user();
         $periode = Carbon::createFromFormat('Y-m', $request->periode)->startOfMonth();
 
-        $sudahAda = IndexScoring::where('periode_pengajuan', $periode)->exists();
+        $sudahAdaQuery = IndexScoring::where('periode_pengajuan', $periode);
+
+        if ($user->role?->code != 'admin') {
+            $sudahAdaQuery->where('ruangan_id', $user->ruangan_id);
+        }
+
+        $sudahAda = $sudahAdaQuery->exists();
 
         if ($sudahAda) {
             return redirect()
@@ -55,7 +80,13 @@ class IndexScoringControllers extends Controller
                 ->with('warning', 'Pengajuan untuk periode ' . $periode->format('F Y') . ' sudah ada. Silakan lanjutkan pada tabel yang sudah tersedia di bawah.');
         }
 
-        $periodeList = IndexScoring::where('status_pengajuan', '!=', 'selesai')
+        $periodeQuery = IndexScoring::where('status_pengajuan', '!=', 'selesai');
+
+        if ($user->role?->code != 'admin') {
+            $periodeQuery->where('ruangan_id', $user->ruangan_id);
+        }
+
+        $periodeList = $periodeQuery
             ->distinct()
             ->pluck('periode_pengajuan')
             ->push($periode->toDateString())

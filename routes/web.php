@@ -281,6 +281,7 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
     Route::middleware(['permission:inacbg.index'])->prefix('inacbg')->name('inacbg.')->group(function () {
         Route::get('/', [InacbgController::class, 'index'])->name('index');
         Route::post('/import', [InacbgController::class, 'import'])->name('import');
+        Route::get('/export', [InacbgController::class, 'export'])->name('export');
         Route::get('/{inacbgClaim}', [InacbgController::class, 'show'])->name('show');
         Route::put('/{inacbgClaim}/status', [InacbgController::class, 'updateStatus'])->name('update-status');
     });

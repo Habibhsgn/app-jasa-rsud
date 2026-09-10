@@ -162,7 +162,7 @@
                         <option value="disetujui" {{ request('status') == 'disetujui' ? 'selected' : '' }}>Disetujui</option>
                     </select>
                 </div>
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <label class="form-label fw-bold">Cari</label>
                     <div class="input-group">
                         <input type="text" name="search" class="form-control"
@@ -174,6 +174,12 @@
                             <i class="bi bi-arrow-clockwise me-1"></i> Reset
                         </a>
                     </div>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label invisible d-none d-md-block">&nbsp;</label>
+                    <a href="{{ route('inacbg.export', request()->query()) }}" class="btn btn-success w-100">
+                        <i class="bi bi-download me-1"></i> Export
+                    </a>
                 </div>
             </form>
         </div>
