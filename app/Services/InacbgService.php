@@ -116,8 +116,15 @@ class InacbgService
                     $row['jenis_rawat'] = $fb['jenis_rawat'] ?? 'unknown';
                 } else {
                     $row['status'] = 'pending';
-                    // Infer jenis_rawat from kelas_rawat if available
-                    if (empty($row['jenis_rawat'])) {
+                    // Infer jenis_rawat from admission_date and discharge_date
+                    // If same day → rawat_jalan, else rawat_inap
+                    $admission = $row['admission_date'] ?? null;
+                    $discharge = $row['discharge_date'] ?? null;
+                    if ($admission && $discharge && $admission === $discharge) {
+                        $row['jenis_rawat'] = 'ralan';
+                    } elseif ($admission && $discharge) {
+                        $row['jenis_rawat'] = 'ranap';
+                    } else {
                         $row['jenis_rawat'] = 'unknown';
                     }
                 }
