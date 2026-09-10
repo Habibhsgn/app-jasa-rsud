@@ -8,9 +8,9 @@ use App\Services\InacbgService;
 use App\Services\FeedbackPdfService;
 use App\Services\JasaService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\InacbgExport;
+use Illuminate\Support\Carbon;
 
 class InacbgController extends Controller
 {
@@ -18,7 +18,8 @@ class InacbgController extends Controller
         protected InacbgService $inacbgService,
         protected FeedbackPdfService $feedbackPdfService,
         protected JasaService $jasaService
-    ) {}
+    ) {
+    }
 
 
     /**
@@ -38,8 +39,8 @@ class InacbgController extends Controller
                 ->first();
 
             if ($latest) {
-                $bulan = (int) \Carbon\Carbon::parse($latest->discharge_date)->format('n');
-                $tahun = (int) \Carbon\Carbon::parse($latest->discharge_date)->format('Y');
+                $bulan = (int) Carbon::parse($latest->discharge_date)->format('n');
+                $tahun = (int) Carbon::parse($latest->discharge_date)->format('Y');
             }
         }
 
@@ -107,8 +108,8 @@ class InacbgController extends Controller
         ini_set('memory_limit', '512M');
 
         $request->validate([
-            'file_inacbg'     => 'required|file|mimes:xlsx,xls',
-            'file_feedback'   => 'nullable|array|max:2',
+            'file_inacbg' => 'required|file|mimes:xlsx,xls',
+            'file_feedback' => 'nullable|array|max:2',
             'file_feedback.*' => 'file|mimes:pdf',
         ]);
 
@@ -221,6 +222,24 @@ class InacbgController extends Controller
 
     public function export(Request $request)
     {
+        // Default ke discharge_date terbaru jika tidak ada filter bulan/tahun
+        $hasFilter = $request->has('bulan') || $request->has('tahun');
+
+        $bulan = $request->integer('bulan') ?: null;
+        $tahun = $request->integer('tahun') ?: null;
+
+        if (!$hasFilter && !$bulan && !$tahun) {
+            $latest = InacbgClaim::where('status', 'disetujui')
+                ->whereNotNull('discharge_date')
+                ->orderByDesc('discharge_date')
+                ->first();
+
+            if ($latest) {
+                $bulan = (int) Carbon::parse($latest->discharge_date)->format('n');
+                $tahun = (int) Carbon::parse($latest->discharge_date)->format('Y');
+            }
+        }
+
         $query = InacbgClaim::query();
 
         // Filter by status
@@ -229,20 +248,19 @@ class InacbgController extends Controller
         }
 
         // Filter by month
-        $bulan = $request->filled('bulan') ? $request->integer('bulan') : null;
         if ($bulan) {
             $query->whereMonth('discharge_date', $bulan);
         }
 
         // Filter by year
-        $tahun = $request->filled('tahun') ? $request->integer('tahun') : null;
         if ($tahun) {
             $query->whereYear('discharge_date', $tahun);
         }
 
-        // Search by SEP, MRN, or Nama
+        // Search by SEP, MRN, Nama, atau INA-CBG
         if ($request->filled('search')) {
             $s = $request->search;
+
             $query->where(function ($q) use ($s) {
                 $q->where('sep', 'like', "%{$s}%")
                     ->orWhere('mrn', 'like', "%{$s}%")
@@ -251,17 +269,25 @@ class InacbgController extends Controller
             });
         }
 
-        // Sort by dpjp
+        // Sort by DPJP
         $query->orderBy('dpjp', 'asc');
 
         $claims = $query->get();
 
-        // Generate filename with month and year
+        // Generate filename
         if ($bulan && $tahun) {
-            $namaBulan = \Carbon\Carbon::create()->month($bulan)->locale('id')->translatedFormat('F');
+            $namaBulan = Carbon::create()
+                ->month($bulan)
+                ->locale('id')
+                ->translatedFormat('F');
+
             $filename = 'INA-CBG_EXPORT_' . strtoupper($namaBulan) . '_' . $tahun;
         } elseif ($bulan) {
-            $namaBulan = \Carbon\Carbon::create()->month($bulan)->locale('id')->translatedFormat('F');
+            $namaBulan = Carbon::create()
+                ->month($bulan)
+                ->locale('id')
+                ->translatedFormat('F');
+
             $filename = 'INA-CBG_EXPORT_' . strtoupper($namaBulan) . '_' . now()->year;
         } elseif ($tahun) {
             $filename = 'INA-CBG_EXPORT_SEMUA_BULAN_' . $tahun;

@@ -16,8 +16,10 @@ class InacbgExport implements WithMultipleSheets
     public function sheets(): array
     {
         return [
-            new InacbgStatusSheet($this->data, 'disetujui', 'Disetujui'),
-            new InacbgStatusSheet($this->data, 'pending', 'Pending'),
+            new InacbgTypeStatusSheet($this->data, 'ranap', 'disetujui', 'RANAP Disetujui'),
+            new InacbgTypeStatusSheet($this->data, 'ranap', 'pending', 'RANAP Pending'),
+            new InacbgTypeStatusSheet($this->data, 'ralan', 'disetujui', 'RALAN Disetujui'),
+            new InacbgTypeStatusSheet($this->data, 'ralan', 'pending', 'RALAN Pending'),
         ];
     }
 }
