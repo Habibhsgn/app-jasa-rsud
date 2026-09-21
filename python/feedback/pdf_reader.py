@@ -1,3 +1,4 @@
+import gc
 import re
 from datetime import datetime
 
@@ -11,50 +12,142 @@ from models import (
 
 class PdfReader:
 
-    def read(self, pdf_path: str) -> FeedbackResult:
-        """
-        Membaca satu file PDF feedback BPJS.
+    # Jumlah halaman per chunk. Kecil = hemat memori, tapi sedikit lebih lambat.
+    CHUNK_SIZE = 10
 
-        Return:
-            FeedbackResult
+    # ------------------------------------------------------------------
+    # API utama
+    # ------------------------------------------------------------------
+
+    def read(
+        self,
+        pdf_path: str,
+        chunk_size: int | None = None
+    ) -> FeedbackResult:
         """
+        Membaca satu PDF per CHUNK halaman. Setiap chunk membuka PDF dari
+        awal lalu menutupnya lagi, sehingga seluruh cache pdfminer/pdfplumber
+        dilepas di antara chunk.
+        """
+
+        chunk_size = chunk_size or self.CHUNK_SIZE
+
+        pelayanan, total = self.inspect(pdf_path)
 
         result = FeedbackResult()
 
+        for start in range(0, total, chunk_size):
+
+            end = min(start + chunk_size, total)
+
+            for feedback in self.read_chunk(pdf_path, start, end):
+                self.add(result, pelayanan, feedback)
+
+        return result
+
+    def inspect(self, pdf_path: str) -> tuple[str, int]:
+        """
+        Mengembalikan (jenis pelayanan, jumlah halaman) tanpa membaca tabel.
+        """
+
         with pdfplumber.open(pdf_path) as pdf:
+
+            total = len(pdf.pages)
 
             pelayanan = self.detect_service(pdf)
 
-            if pelayanan is None:
-                raise Exception(
-                    f"Tingkat Pelayanan tidak ditemukan pada file : {pdf_path}"
-                )
+        gc.collect()
 
-            for page in pdf.pages:
+        if pelayanan is None:
+            raise Exception(
+                f"Tingkat Pelayanan tidak ditemukan pada file : {pdf_path}"
+            )
 
-                tables = page.extract_tables()
+        return pelayanan, total
 
-                if not tables:
-                    continue
+    def read_chunk(
+        self,
+        pdf_path: str,
+        start: int,
+        end: int
+    ) -> list[FeedbackRow]:
+        """
+        Membaca halaman [start, end) (index mulai 0) dan mengembalikan
+        baris-baris feedback yang ditemukan.
+        """
 
-                for table in tables:
+        rows: list[FeedbackRow] = []
 
-                    self.read_table(
-                        table,
-                        pelayanan,
-                        result
-                    )
+        with pdfplumber.open(pdf_path) as pdf:
 
-        return result
+            for index in range(start, min(end, len(pdf.pages))):
+
+                page = pdf.pages[index]
+
+                try:
+
+                    for table in page.extract_tables() or []:
+
+                        for row in table:
+
+                            feedback = self.parse_row(row)
+
+                            if feedback is not None:
+                                rows.append(feedback)
+
+                finally:
+
+                    self.release(page)
+
+                    del page
+
+        gc.collect()
+
+        return rows
+
+    def add(
+        self,
+        result: FeedbackResult,
+        pelayanan: str,
+        feedback: FeedbackRow
+    ):
+
+        if pelayanan == "RI":
+            result.ri.add(feedback)
+        else:
+            result.rj.add(feedback)
+
+    # ------------------------------------------------------------------
+    # Helper
+    # ------------------------------------------------------------------
+
+    def release(self, page):
+        """
+        Melepas memori yang ditahan pdfplumber untuk satu halaman.
+        """
+
+        if hasattr(page, "flush_cache"):
+            page.flush_cache()
+
+        if hasattr(page, "close"):
+            try:
+                page.close()
+            except Exception:
+                pass
 
     def detect_service(self, pdf) -> str | None:
         """
         Mendeteksi apakah file RITL atau RJTL.
         """
 
-        for page in pdf.pages[:2]:
+        for index in range(min(2, len(pdf.pages))):
 
-            text = page.extract_text() or ""
+            page = pdf.pages[index]
+
+            try:
+                text = page.extract_text() or ""
+            finally:
+                self.release(page)
 
             if "RITL" in text:
                 return "RI"
@@ -63,25 +156,6 @@ class PdfReader:
                 return "RJ"
 
         return None
-
-    def read_table(
-        self,
-        table,
-        pelayanan,
-        result: FeedbackResult
-    ):
-
-        for row in table:
-
-            feedback = self.parse_row(row)
-
-            if feedback is None:
-                continue
-
-            if pelayanan == "RI":
-                result.ri.add(feedback)
-            else:
-                result.rj.add(feedback)
 
     def parse_row(
         self,
@@ -114,69 +188,32 @@ class PdfReader:
             biaya_disetujui=self.to_number(row[5]),
         )
 
-    def clean(
-        self,
-        value
-    ) -> str:
+    def clean(self, value) -> str:
 
         if value is None:
             return ""
 
-        return (
-            str(value)
-            .replace("\n", " ")
-            .strip()
-        )
+        return str(value).replace("\n", " ").strip()
 
-    def is_number(
-        self,
-        value
-    ) -> bool:
-
+    def is_number(self, value) -> bool:
         return value.isdigit()
 
-    def is_sep(
-        self,
-        value
-    ) -> bool:
+    def is_sep(self, value) -> bool:
+        return bool(re.match(r'^\d+[A-Z]\d+', value))
 
-        return bool(
-            re.match(
-                r'^\d+[A-Z]\d+',
-                value
-            )
-        )
-
-    def is_date(
-        self,
-        value
-    ) -> bool:
+    def is_date(self, value) -> bool:
 
         try:
-
-            datetime.strptime(
-                value,
-                "%Y-%m-%d"
-            )
-
+            datetime.strptime(value, "%Y-%m-%d")
             return True
-
-        except:
-
+        except ValueError:
             return False
 
-    def to_number(
-        self,
-        value
-    ) -> float:
+    def to_number(self, value) -> float:
 
-        value = (
-            value
-            .replace(",", "")
-            .replace(" ", "")
-        )
+        value = value.replace(",", "").replace(" ", "")
 
         try:
             return float(value)
-        except:
+        except ValueError:
             return 0
