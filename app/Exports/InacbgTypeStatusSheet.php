@@ -167,6 +167,7 @@ class InacbgTypeStatusSheet implements FromCollection, WithHeadings, WithMapping
     {
         return [
             $this->getNormalizedDpjp($claim->dpjp ?? '-'),
+            $claim->deskripsi_inacbg ?? '-',
             $claim->admission_date ? \Carbon\Carbon::parse($claim->admission_date)->format('d/m/Y') : '-',
             $claim->discharge_date ? \Carbon\Carbon::parse($claim->discharge_date)->format('d/m/Y') : '-',
             $claim->kelas_rawat ?? '-',
@@ -185,6 +186,7 @@ class InacbgTypeStatusSheet implements FromCollection, WithHeadings, WithMapping
     {
         return [
             'DPJP',
+            'Deskripsi Inacbg',
             'Tanggal Masuk',
             'Tanggal Keluar',
             'Kelas Rawat',
@@ -206,7 +208,7 @@ class InacbgTypeStatusSheet implements FromCollection, WithHeadings, WithMapping
 
         // Format numeric columns as numbers (not text) - columns H through L (8-12)
         for ($row = 2; $row <= $highestRow; $row++) {
-            for ($col = 'H'; $col <= 'L'; $col++) {
+            for ($col = 'I'; $col <= 'M'; $col++) {
                 $cell = $sheet->getCell($col . $row);
                 if ($cell->getValue() !== '-' && $cell->getValue() !== '') {
                     $cell->setDataType(\PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
@@ -223,17 +225,18 @@ class InacbgTypeStatusSheet implements FromCollection, WithHeadings, WithMapping
     {
         return [
             'A' => 30,  // DPJP
-            'B' => 18,  // Tanggal Masuk
-            'C' => 18,  // Tanggal Keluar
-            'D' => 15,  // Kelas Rawat
-            'E' => 30,  // Nama
-            'F' => 18,  // No.RM
-            'G' => 20,  // No SEP
-            'H' => 18,  // Total Billing
-            'I' => 18,  // Lab
-            'J' => 18,  // Radiologi
-            'K' => 18,  // USG
-            'L' => 18,  // UTD
+            'B' => 18,  // Deskripsi INA-CBG
+            'C' => 18,  // Tanggal Masuk
+            'D' => 18,  // Tanggal Keluar
+            'E' => 15,  // Kelas Rawat
+            'F' => 30,  // Nama
+            'G' => 18,  // No.RM
+            'H' => 20,  // No SEP
+            'I' => 18,  // Total Billing
+            'J' => 18,  // Lab
+            'K' => 18,  // Radiologi
+            'L' => 18,  // USG
+            'M' => 18,  // UTD
         ];
     }
 }

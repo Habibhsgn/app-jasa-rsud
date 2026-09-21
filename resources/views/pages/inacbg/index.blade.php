@@ -79,21 +79,23 @@
                     </div>
                     <div class="col-md-5">
                         <label for="file_feedback" class="form-label fw-bold">
-                            File Feedback PDF (Opsional)
+                            File Feedback PDF <span class="text-danger">*</span>
                         </label>
-                        <input type="file"
+
+                        <input type="file" required
                             class="form-control @error('file_feedback') is-invalid @enderror @error('file_feedback.*') is-invalid @enderror"
-                            id="file_feedback" name="file_feedback[]" accept=".pdf" multiple>
+                            id="file_feedback" name="file_feedback[]" accept=".pdf">
+
                         @error('file_feedback')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
+
                         @error('file_feedback.*')
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
+
                         <div class="form-text">
-                            Upload maksimal <strong>2 file PDF</strong> Feedback INA-CBG
-                            (Rawat Jalan dan Rawat Inap). Sistem akan mengonversinya
-                            menjadi Excel secara otomatis.
+                            Upload <strong> file PDF</strong> Feedback INA-CBG.
                         </div>
                     </div>
                     <div class="col-md-2">
@@ -109,8 +111,8 @@
     {{-- [ Upload Form ] end --}}
 
     {{-- [ Loading Modal ] start --}}
-    <div class="modal fade" id="importLoadingModal" tabindex="-1" data-bs-backdrop="static"
-        data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal fade" id="importLoadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false"
+        aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-body text-center py-5">
@@ -159,7 +161,8 @@
                     <select name="status" class="form-select" onchange="this.form.submit()">
                         <option value="">Semua Status</option>
                         <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="disetujui" {{ request('status') == 'disetujui' ? 'selected' : '' }}>Disetujui</option>
+                        <option value="disetujui" {{ request('status') == 'disetujui' ? 'selected' : '' }}>Disetujui
+                        </option>
                     </select>
                 </div>
                 <div class="col-md-4">
