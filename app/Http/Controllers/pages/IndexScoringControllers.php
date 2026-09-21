@@ -5,10 +5,8 @@ namespace App\Http\Controllers\pages;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use App\Models\IndexScoring;
-use App\Models\PeriodeJasa;
 use App\Models\TopLeader;
 use Illuminate\Support\Carbon;
 
@@ -20,127 +18,287 @@ class IndexScoringControllers extends Controller
     private array $lockedStatuses = ['submit', 'verifikasi', 'selesai'];
 
     /**
-     * Tampilkan semua periode yang masih aktif (belum "selesai").
+     * Nilai target khusus di dropdown untuk section Top Leader (hanya admin).
+     */
+    private const TARGET_TOP_LEADER = 'top-leader';
+
+    // =====================================================================
+    // HELPER OTORISASI
+    // =====================================================================
+
+    private function isAdmin($user): bool
+    {
+        return $user->role?->code === 'admin';
+    }
+
+    /**
+     * Ruangan yang boleh dipilih user ini di dropdown.
+     * Admin: semua ruangan aktif. Non-admin: hanya ruangan miliknya.
+     */
+    private function ruanganOptions($user)
+    {
+        return DB::table('ruangan')
+            ->where('is_active', 1)
+            ->when(!$this->isAdmin($user), fn($q) => $q->where('id', $user->ruangan_id))
+            ->orderBy('nama_ruangan')
+            ->get(['id', 'nama_ruangan']);
+    }
+
+    /**
+     * Pastikan user berhak atas target (id ruangan atau 'top-leader').
+     * Dropdown bisa dimanipulasi lewat inspect element/URL, jadi WAJIB dicek di server.
+     */
+    private function authorizeTarget($user, string $target): void
+    {
+        if ($this->isAdmin($user)) {
+            return;
+        }
+
+        abort_unless(
+            $target !== self::TARGET_TOP_LEADER && (int) $target === (int) $user->ruangan_id,
+            403,
+            'Anda tidak berhak mengakses ruangan ini.'
+        );
+    }
+
+    // =====================================================================
+    // INDEX: daftar pengajuan yang sudah tersimpan (TANPA render form)
+    // =====================================================================
+
+    /**
+     * Tampilkan daftar pengajuan (periode + ruangan) yang sudah tersimpan di DB
+     * dan belum "selesai". Form tidak dirender di sini; user membukanya satu per
+     * satu lewat link ke create() dengan parameter periode + ruangan.
      *
-     * PENTING: untuk user non-admin, daftar periode WAJIB difilter berdasarkan
-     * ruangan_id miliknya sendiri. Kalau tidak difilter, periode yang dibuat/
-     * disimpan oleh ruangan lain akan ikut muncul (dan ikut men-generate form
-     * kosong) di halaman ruangan yang tidak bersangkutan.
+     * Non-admin difilter berdasarkan ruangan_id miliknya.
      */
     public function index()
     {
         $user = Auth::user();
 
-        $periodeQuery = IndexScoring::where('status_pengajuan', '!=', 'selesai');
+        // ---- KARU: render form semua periode tersimpan, khusus ruangannya ----
+        // Aman (ringan) karena tiap form hanya berisi pegawai 1 ruangan.
+        if (!$this->isAdmin($user)) {
+            $periodeList = IndexScoring::where('status_pengajuan', '!=', 'selesai')
+                ->where('ruangan_id', $user->ruangan_id)
+                ->distinct()
+                ->orderBy('periode_pengajuan')
+                ->pluck('periode_pengajuan');
 
-        if ($user->role?->code != 'admin') {
-            $periodeQuery->where('ruangan_id', $user->ruangan_id);
+            $data = $periodeList->map(
+                fn($p) => $this->buildPeriodeData(Carbon::parse($p), [(int) $user->ruangan_id], false)
+            );
+
+            $ruanganOptions = $this->ruanganOptions($user);
+
+            return view('pages.IndexScoring', compact('data', 'ruanganOptions'));
         }
 
-        $periodeList = $periodeQuery
+        // ---- ADMIN: 1 expand = 1 PERIODE, isinya semua ruangan yang sudah ada pengajuannya ----
+        // Paginasi dilakukan per periode supaya jumlah form yang dirender tetap terbatas.
+        $list = IndexScoring::query()
+            ->where('status_pengajuan', '!=', 'selesai')
+            ->select('periode_pengajuan', DB::raw('MAX(updated_at) as terakhir_update'))
+            ->groupBy('periode_pengajuan')
+            ->orderByDesc('periode_pengajuan')
+            ->paginate(5);
+
+        $periodeRaw = $list->getCollection()
+            ->map(fn($r) => $r->getRawOriginal('periode_pengajuan'))
+            ->values();
+
+        // Ruangan / top leader mana saja yang sudah tersimpan pada periode-periode di halaman ini
+        $saved = IndexScoring::query()
+            ->where('status_pengajuan', '!=', 'selesai')
+            ->whereIn('periode_pengajuan', $periodeRaw)
+            ->select('periode_pengajuan', 'ruangan_id', 'source_type')
             ->distinct()
-            ->orderBy('periode_pengajuan')
-            ->pluck('periode_pengajuan');
+            ->get()
+            ->groupBy(fn($r) => $r->getRawOriginal('periode_pengajuan'));
 
-        $data = $periodeList->map(fn($p) => $this->buildPeriodeData(Carbon::parse($p)));
+        $data = $periodeRaw->map(function ($raw) use ($saved) {
+            $rows = $saved->get($raw, collect());
 
-        return view('pages.IndexScoring', compact('data'));
+            $ruanganIds = $rows->where('source_type', 'pegawai')
+                ->pluck('ruangan_id')->filter()->unique()->map(fn($id) => (int) $id)->values()->all();
+
+            $hasTopLeader = $rows->contains('source_type', 'top_leader');
+
+            return $this->buildPeriodeData(Carbon::parse($raw), $ruanganIds, $hasTopLeader);
+        })->values();
+
+        $ruanganOptions = $this->ruanganOptions($user);
+
+        return view('pages.IndexScoring', compact('data', 'list', 'ruanganOptions'));
+    }
+
+    // =====================================================================
+    // CREATE: render 1 form (1 periode x 1 ruangan / top leader), tanpa menyimpan
+    // =====================================================================
+
+    /**
+     * Cek apakah pengajuan untuk periode + target SUDAH DIAJUKAN (status terkunci:
+     * submit / verifikasi / selesai). Dipakai untuk mencegah pengajuan ganda
+     * saat user membuka form baru lewat tombol "Buka Form".
+     *
+     * @return string|null pesan error jika sudah diajukan, null jika boleh lanjut
+     */
+    private function alreadySubmittedMessage(Carbon $periode, string $target): ?string
+    {
+        $label = $periode->translatedFormat('F Y');
+
+        if ($target === self::TARGET_TOP_LEADER) {
+            $activeIds = TopLeader::where('is_active', true)->pluck('id');
+
+            if ($activeIds->isEmpty()) {
+                return null;
+            }
+
+            $lockedCount = IndexScoring::where('periode_pengajuan', $periode)
+                ->where('source_type', 'top_leader')
+                ->whereIn('source_id', $activeIds)
+                ->whereIn('status_pengajuan', $this->lockedStatuses)
+                ->distinct()
+                ->count('source_id');
+
+            // Top Leader diajukan per posisi; blokir hanya jika SEMUA sudah diajukan
+            return $lockedCount >= $activeIds->count()
+                ? "Pengajuan Top Leader periode $label sudah diajukan dan tidak dapat dibuat ulang."
+                : null;
+        }
+
+        $existing = IndexScoring::where('periode_pengajuan', $periode)
+            ->where('source_type', 'pegawai')
+            ->where('ruangan_id', (int) $target)
+            ->whereIn('status_pengajuan', $this->lockedStatuses)
+            ->first();
+
+        if (!$existing) {
+            return null;
+        }
+
+        $nama = DB::table('ruangan')->where('id', (int) $target)->value('nama_ruangan') ?? 'ruangan ini';
+
+        return "Pengajuan untuk $nama periode $label sudah diajukan (status: {$existing->status_pengajuan}) "
+            . 'dan tidak dapat dibuat ulang.';
     }
 
     /**
-     * Buat pengajuan baru untuk 1 periode.
-     * Jika periode itu sudah ada UNTUK RUANGAN INI (non-admin), tolak dan arahkan
-     * balik ke daftar (form lama tetap tampil). Jika periode baru, tambahkan
-     * sebagai kartu terpisah di bawah periode-periode lain.
+     * Render form untuk 1 periode + 1 target. Belum ada yang disimpan ke DB
+     * sampai user klik "Simpan Draft" atau "Submit".
      *
-     * Sama seperti index(), daftar periode di sini juga WAJIB difilter per
-     * ruangan_id untuk non-admin, supaya generate periode oleh ruangan lain
-     * tidak "bocor" ke ruangan yang sedang login.
+     * Karena data draft yang sudah ada ikut dimuat, method ini juga dipakai
+     * untuk membuka kembali pengajuan yang sudah tersimpan.
      */
     public function create(Request $request)
     {
         $request->validate([
-            'periode' => ['required'],
+            'periode' => ['required', 'date_format:Y-m'],
+            'ruangan' => ['required'],
         ]);
 
         $user = Auth::user();
+        $target = (string) $request->ruangan;
+
+        $this->authorizeTarget($user, $target);
+
         $periode = Carbon::createFromFormat('Y-m', $request->periode)->startOfMonth();
+        $isTopLeader = $target === self::TARGET_TOP_LEADER;
 
-        $sudahAdaQuery = IndexScoring::where('periode_pengajuan', $periode);
+        // Pembukaan form BARU lewat tombol "Buka Form" (mode=baru): tolak jika sudah diajukan.
+        // Melihat form yang sudah terkunci (mis. redirect setelah submit) tidak dicek di sini,
+        // karena form tersebut memang hanya tampil (disabled) dan save() tetap menolak perubahan.
+        if ($request->input('mode') === 'baru') {
+            if ($message = $this->alreadySubmittedMessage($periode, $target)) {
+                return redirect()
+                    ->route('index.scoring.index')
+                    ->with('error', $message);
+            }
 
-        if ($user->role?->code != 'admin') {
-            $sudahAdaQuery->where('ruangan_id', $user->ruangan_id);
+            // Draft/revisi yang sudah ada: tidak menduplikasi, data tersimpan dimuat kembali
+            $sudahAdaDraft = IndexScoring::where('periode_pengajuan', $periode)
+                ->when(
+                    $isTopLeader,
+                    fn($q) => $q->where('source_type', 'top_leader'),
+                    fn($q) => $q->where('source_type', 'pegawai')->where('ruangan_id', (int) $target)
+                )
+                ->exists();
+
+            if ($sudahAdaDraft) {
+                session()->now('warning', 'Pengajuan periode ' . $periode->translatedFormat('F Y')
+                    . ' sudah pernah disimpan. Data yang tersimpan dimuat kembali, bukan dibuat ulang.');
+            }
         }
 
-        $sudahAda = $sudahAdaQuery->exists();
+        $item = $this->buildPeriodeData(
+            $periode,
+            $isTopLeader ? [] : [(int) $target],
+            $isTopLeader
+        );
 
-        if ($sudahAda) {
-            return redirect()
-                ->route('index.scoring.index')
-                ->with('warning', 'Pengajuan untuk periode ' . $periode->format('F Y') . ' sudah ada. Silakan lanjutkan pada tabel yang sudah tersedia di bawah.');
-        }
+        $data = collect([$item]);
+        $ruanganOptions = $this->ruanganOptions($user);
 
-        $periodeQuery = IndexScoring::where('status_pengajuan', '!=', 'selesai');
-
-        if ($user->role?->code != 'admin') {
-            $periodeQuery->where('ruangan_id', $user->ruangan_id);
-        }
-
-        $periodeList = $periodeQuery
-            ->distinct()
-            ->pluck('periode_pengajuan')
-            ->push($periode->toDateString())
-            ->unique()
-            ->sortBy(fn($p) => Carbon::parse($p))
-            ->values();
-
-        $data = $periodeList->map(fn($p) => $this->buildPeriodeData(Carbon::parse($p)));
-
-        return view('pages.IndexScoring', compact('data'));
+        return view('pages.IndexScoring', compact('data', 'ruanganOptions'));
     }
 
+    // =====================================================================
+    // BUILD DATA FORM
+    // =====================================================================
+
     /**
-     * Susun data 1 periode: ruangan -> pegawai, dengan draft (jika ada) di-overlay ke data master.
-     * Tambahan: section Top Leader (tanpa ruangan)
+     * Susun data 1 periode untuk SATU target:
+     *  - $ruanganIds diisi  => form pegawai untuk ruangan-ruangan itu saja
+     *  - $withTopLeader     => section Top Leader (tanpa ruangan)
+     *
+     * Draft (jika ada) di-overlay ke data master.
      */
-    private function buildPeriodeData(Carbon $periode): object
+    private function buildPeriodeData(Carbon $periode, array $ruanganIds, bool $withTopLeader = false): object
     {
-        $scoring = IndexScoring::where('periode_pengajuan', $periode)->get();
-        $draftScoring = $scoring->keyBy(function ($row) {
-            return $row->source_type . '_' . $row->source_id;
-        });
-
-        // Kelompokkan record scoring per ruangan_id untuk menentukan status per ruangan
-        $scoringByRuangan = $scoring->where('source_type', 'pegawai')->groupBy('ruangan_id');
-
-        $user = Auth::user();
-
-        if ($user->role?->code == 'admin') {
-            $ruangans = DB::table('ruangan')
-                ->where('is_active', 1)
-                ->orderBy('nama_ruangan')
-                ->get();
-        } else {
-            $ruangans = DB::table('ruangan')
-                ->where('id', $user->ruangan_id)
-                ->where('is_active', 1)
-                ->get();
-        }
-
-        $pegawaiByRuangan = DB::table('pegawai')
-            ->orderBy('nama')
-            ->get()
-            ->groupBy('ruangan_id');
-
-        // Load Top Leaders (active only)
-        $topLeaders = TopLeader::where('is_active', true)
-            ->orderBy('posisi')
+        // Hanya muat scoring milik target yang dirender
+        $scoring = IndexScoring::where('periode_pengajuan', $periode)
+            ->where(function ($q) use ($ruanganIds, $withTopLeader) {
+                if (!empty($ruanganIds)) {
+                    $q->whereIn('ruangan_id', $ruanganIds);
+                }
+                if ($withTopLeader) {
+                    !empty($ruanganIds)
+                        ? $q->orWhere('source_type', 'top_leader')
+                        : $q->where('source_type', 'top_leader');
+                }
+                if (empty($ruanganIds) && !$withTopLeader) {
+                    $q->whereRaw('1 = 0');
+                }
+            })
             ->get();
 
-        // Lookup pegawai by id untuk histori
-        $pegawaiMasterById = DB::table('pegawai')->get()->keyBy('id');
+        $draftScoring = $scoring->keyBy(fn($row) => $row->source_type . '_' . $row->source_id);
+        $scoringByRuangan = $scoring->where('source_type', 'pegawai')->groupBy('ruangan_id');
 
-        // Build ruangan data (regular pegawai)
+        // Ruangan yang dirender
+        $ruangans = !empty($ruanganIds)
+            ? DB::table('ruangan')->whereIn('id', $ruanganIds)->where('is_active', 1)->orderBy('nama_ruangan')->get()
+            : collect();
+
+        // Pegawai: diambil SEKALI, hanya untuk ruangan yang dirender.
+        // Tambahan whereIn id supaya pegawai yang sudah pindah ruangan tetap
+        // ditemukan pada data yang sudah terkunci.
+        $pegawaiMasterById = collect();
+        if ($ruangans->isNotEmpty()) {
+            $pegawaiIdsTersimpan = $scoring->pluck('pegawai_id')->filter()->values();
+
+            $pegawaiMasterById = DB::table('pegawai')
+                ->where(function ($q) use ($ruangans, $pegawaiIdsTersimpan) {
+                    $q->whereIn('ruangan_id', $ruangans->pluck('id'))
+                        ->orWhereIn('id', $pegawaiIdsTersimpan);
+                })
+                ->orderBy('nama')
+                ->get()
+                ->keyBy('id');
+        }
+        $pegawaiByRuangan = $pegawaiMasterById->groupBy('ruangan_id');
+
+        // ---------- Regular pegawai per ruangan ----------
         $ruanganData = $ruangans->map(function ($ruangan) use ($pegawaiByRuangan, $draftScoring, $scoringByRuangan, $pegawaiMasterById) {
             $scoringRuanganIni = $scoringByRuangan->get($ruangan->id, collect());
 
@@ -149,13 +307,12 @@ class IndexScoringControllers extends Controller
             $catatanRevisiRuangan = optional($scoringRuanganIni->first())->catatan_revisi;
 
             if ($disableInputRuangan) {
-                // PERIODE SUDAH TERKUNCI
+                // PERIODE SUDAH TERKUNCI: tampilkan snapshot yang tersimpan
                 $pegawaiList = $scoringRuanganIni
-                    ->sortBy(function ($row) use ($pegawaiMasterById) {
-                        return optional($pegawaiMasterById->get($row->pegawai_id))->nama;
-                    })
+                    ->sortBy(fn($row) => optional($pegawaiMasterById->get($row->pegawai_id))->nama)
                     ->map(function ($row) use ($pegawaiMasterById) {
                         $p = $pegawaiMasterById->get($row->pegawai_id);
+                        $gajiPokok = (int) ($row->gaji_pokok ?? $p->gaji_pokok ?? 0);
 
                         return (object) [
                             'id' => $row->pegawai_id,
@@ -164,8 +321,8 @@ class IndexScoringControllers extends Controller
                             'source_type' => 'pegawai',
                             'source_id' => $row->pegawai_id,
 
-                            'gaji_pokok' => (int) $p->gaji_pokok,
-                            'gaji_pokok_display' => number_format((int) $p->gaji_pokok, 0, ',', '.'),
+                            'gaji_pokok' => $gajiPokok,
+                            'gaji_pokok_display' => number_format($gajiPokok, 0, ',', '.'),
 
                             'jabatan' => $row->jabatan,
                             'pendidikan_formal' => $row->pendidikan_formal,
@@ -186,12 +343,11 @@ class IndexScoringControllers extends Controller
                     })
                     ->values();
             } else {
-                // PERIODE BELUM TERKUNCI
+                // PERIODE BELUM TERKUNCI: master + overlay draft
                 $pegawaiRuangan = $pegawaiByRuangan->get($ruangan->id, collect());
 
                 $pegawaiList = $pegawaiRuangan->map(function ($p) use ($draftScoring) {
-                    $key = 'pegawai_' . $p->id;
-                    $draft = $draftScoring->get($key);
+                    $draft = $draftScoring->get('pegawai_' . $p->id);
 
                     $gajiPokokRaw = $draft->gaji_pokok ?? $p->gaji_pokok;
 
@@ -237,83 +393,83 @@ class IndexScoringControllers extends Controller
             ];
         });
 
-        // Build Top Leader section (grouped by posisi, tanpa ruangan)
-        $topLeaderData = $topLeaders->groupBy('posisi')->map(function ($leaders, $posisi) use ($draftScoring, $scoring) {
-            $leaderData = $leaders->map(function ($tl) use ($draftScoring, $scoring) {
-                $key = 'top_leader_' . $tl->id;
-                $draft = $draftScoring->get($key);
-                $existing = $scoring->where('source_type', 'top_leader')
-                    ->where('source_id', $tl->id)
-                    ->first();
+        // ---------- Top Leader (grouped by posisi, tanpa ruangan) ----------
+        $topLeaderData = collect();
 
-                $statusTL = $existing?->status_pengajuan ?? 'draft';
-                $disableInputTL = in_array($statusTL, $this->lockedStatuses);
-                $catatanRevisiTL = $existing?->catatan_revisi;
+        if ($withTopLeader) {
+            $topLeaders = TopLeader::where('is_active', true)
+                ->orderBy('posisi')
+                ->get();
 
-                $jabatan = $draft->jabatan ?? 0;
-                $pendidikanFormal = $draft->pendidikan_formal ?? 0;
-                $pendidikanNonFormal = $draft->pendidikan_non_formal ?? 0;
-                $risk = $draft->risk ?? 0;
-                $emergency = $draft->emergency ?? 0;
-                // Fallback ke gaji_pokok dari tabel top_leaders jika draft kosong
-                $gajiPokok = $draft->gaji_pokok ?? $tl->gaji_pokok ?? 0;
+            $topLeaderData = $topLeaders->groupBy('posisi')->map(function ($leaders, $posisi) use ($draftScoring, $scoring) {
+                $leaderData = $leaders->map(function ($tl) use ($draftScoring, $scoring) {
+                    $draft = $draftScoring->get('top_leader_' . $tl->id);
+                    $existing = $scoring->where('source_type', 'top_leader')
+                        ->where('source_id', $tl->id)
+                        ->first();
+
+                    $statusTL = $existing?->status_pengajuan ?? 'draft';
+                    $disableInputTL = in_array($statusTL, $this->lockedStatuses);
+                    $catatanRevisiTL = $existing?->catatan_revisi;
+
+                    // Fallback ke gaji_pokok dari tabel top_leaders jika draft kosong
+                    $gajiPokok = $draft->gaji_pokok ?? $tl->gaji_pokok ?? 0;
+
+                    return (object) [
+                        'id' => $tl->id,
+                        'nama' => $tl->nama,
+                        'posisi' => $tl->posisi,
+                        'id_petugas' => $tl->posisi,
+                        'source_type' => 'top_leader',
+                        'source_id' => $tl->id,
+
+                        'gaji_pokok' => (int) $gajiPokok,
+                        'gaji_pokok_display' => number_format((int) $gajiPokok, 0, ',', '.'),
+
+                        'jabatan' => $draft->jabatan ?? 0,
+                        'pendidikan_formal' => $draft->pendidikan_formal ?? 0,
+                        'pendidikan_non_formal' => $draft->pendidikan_non_formal ?? 0,
+
+                        'risk' => $draft->risk ?? 0,
+                        'emergency' => $draft->emergency ?? 0,
+
+                        'cuti' => $draft->cuti ?? 0,
+                        'izin' => $draft->izin ?? 0,
+                        'tanpa_izin' => $draft->tanpa_izin ?? 0,
+                        'telat' => $draft->telat ?? 0,
+                        'sikap' => $draft->sikap ?? 0,
+                        'jumlah' => $draft->jumlah ?? 0,
+                        'jumlah_akhir' => $draft->jumlah_akhir ?? 0,
+                        'keterangan' => $draft->keterangan ?? null,
+
+                        'status_pengajuan' => $statusTL,
+                        'disable_input' => $disableInputTL,
+                        'catatan_revisi' => $catatanRevisiTL,
+                    ];
+                })->values();
+
+                // Status keseluruhan untuk grup posisi ini
+                $statuses = $leaderData->pluck('status_pengajuan');
+                $statusGroup = 'draft';
+                if ($statuses->contains('submit')) {
+                    $statusGroup = 'submit';
+                } elseif ($statuses->contains('verifikasi')) {
+                    $statusGroup = 'verifikasi';
+                } elseif ($statuses->contains('revisi')) {
+                    $statusGroup = 'revisi';
+                } elseif ($statuses->contains('selesai')) {
+                    $statusGroup = 'selesai';
+                }
 
                 return (object) [
-                    'id' => $tl->id,
-                    'nama' => $tl->nama,
-                    'posisi' => $tl->posisi,
-                    'id_petugas' => $tl->posisi,
-                    'source_type' => 'top_leader',
-                    'source_id' => $tl->id,
-
-                    'gaji_pokok' => (int) $gajiPokok,
-                    'gaji_pokok_display' => number_format((int) $gajiPokok, 0, ',', '.'),
-
-                    'jabatan' => $jabatan,
-                    'pendidikan_formal' => $pendidikanFormal,
-                    'pendidikan_non_formal' => $pendidikanNonFormal,
-
-                    'risk' => $risk,
-                    'emergency' => $emergency,
-
-                    'cuti' => $draft->cuti ?? 0,
-                    'izin' => $draft->izin ?? 0,
-                    'tanpa_izin' => $draft->tanpa_izin ?? 0,
-                    'telat' => $draft->telat ?? 0,
-                    'sikap' => $draft->sikap ?? 0,
-                    'jumlah' => $draft->jumlah ?? 0,
-                    'jumlah_akhir' => $draft->jumlah_akhir ?? 0,
-                    'keterangan' => $draft->keterangan ?? null,
-
-                    'status_pengajuan' => $statusTL,
-                    'disable_input' => $disableInputTL,
-                    'catatan_revisi' => $catatanRevisiTL,
+                    'posisi' => $posisi,
+                    'leaders' => $leaderData,
+                    'status_pengajuan' => $statusGroup,
+                    'disable_input' => in_array($statusGroup, $this->lockedStatuses),
+                    'catatan_revisi' => $leaderData->firstWhere('catatan_revisi', '!=', null)?->catatan_revisi,
                 ];
             })->values();
-
-            // Determine overall status for this position group
-            $statuses = $leaderData->pluck('status_pengajuan');
-            $statusGroup = 'draft';
-            if ($statuses->contains('submit'))
-                $statusGroup = 'submit';
-            elseif ($statuses->contains('verifikasi'))
-                $statusGroup = 'verifikasi';
-            elseif ($statuses->contains('revisi'))
-                $statusGroup = 'revisi';
-            elseif ($statuses->contains('selesai'))
-                $statusGroup = 'selesai';
-
-            $disableInputGroup = in_array($statusGroup, $this->lockedStatuses);
-            $catatanRevisiGroup = $leaderData->firstWhere('catatan_revisi', '!=', null)?->catatan_revisi;
-
-            return (object) [
-                'posisi' => $posisi,
-                'leaders' => $leaderData,
-                'status_pengajuan' => $statusGroup,
-                'disable_input' => $disableInputGroup,
-                'catatan_revisi' => $catatanRevisiGroup,
-            ];
-        })->values();
+        }
 
         return (object) [
             'periode' => $periode->format('Y-m'),
@@ -323,51 +479,137 @@ class IndexScoringControllers extends Controller
         ];
     }
 
+    // =====================================================================
+    // SIMPAN / SUBMIT
+    // =====================================================================
+
+    /**
+     * Otorisasi baris-baris yang dikirim form (dropdown & hidden input bisa dimanipulasi).
+     *
+     * Non-admin:
+     *  - hanya boleh source_type 'pegawai'
+     *  - ruangan dipaksa = ruangan miliknya
+     *  - semua pegawai yang dikirim harus milik ruangannya
+     */
+    private function authorizeRows(Request $request): void
+    {
+        $user = Auth::user();
+
+        if ($this->isAdmin($user)) {
+            return;
+        }
+
+        $request->merge(['jasa_ruangan_id' => $user->ruangan_id]);
+
+        $rows = collect($request->pegawai);
+
+        abort_if(
+            $rows->contains(fn($r) => ($r['source_type'] ?? 'pegawai') !== 'pegawai'),
+            403
+        );
+
+        $ids = $rows
+            ->map(fn($r) => $r['source_id'] ?? $r['pegawai_id'] ?? null)
+            ->filter()
+            ->unique()
+            ->values();
+
+        $valid = DB::table('pegawai')
+            ->whereIn('id', $ids)
+            ->where('ruangan_id', $user->ruangan_id)
+            ->count();
+
+        abort_unless($valid === $ids->count(), 403);
+    }
+
+    /**
+     * Redirect kembali ke form yang sedang dibuka (periode + ruangan / top-leader),
+     * supaya setelah Simpan Draft / Submit form tetap tampil dengan data terbaru
+     * (atau tampil terkunci jika sudah submit).
+     */
+    private function redirectToForm(Request $request, Carbon $periode)
+    {
+        $rows = collect($request->pegawai);
+
+        $isTopLeader = $rows->contains(
+            fn($r) => ($r['source_type'] ?? 'pegawai') === 'top_leader'
+        );
+
+        $target = $isTopLeader
+            ? self::TARGET_TOP_LEADER
+            : ($request->jasa_ruangan_id ?: ($rows->first()['ruangan_id'] ?? null));
+
+        if (!$target) {
+            return redirect()->route('index.scoring.index');
+        }
+
+        return redirect()->route('index.scoring.create', [
+            'periode' => $periode->format('Y-m'),
+            'ruangan' => $target,
+        ]);
+    }
+
     /**
      * Simpan draft / submit. Key updateOrCreate WAJIB menyertakan periode,
-     * bukan hanya pegawai_id — kalau tidak, data lintas bulan akan saling menimpa.
+     * bukan hanya pegawai_id, supaya data lintas bulan tidak saling menimpa.
      *
-     * Lock-check sekarang berbasis (periode + ruangan_id) untuk pegawai,
-     * dan (periode + source_id) untuk top leader,
-     * karena tiap ruangan/top leader submit form-nya sendiri-sendiri.
+     * Lock-check dilakukan SEBELUM transaksi, karena `return` di dalam closure
+     * DB::transaction hanya keluar dari closure, bukan dari method.
      */
     private function save(Request $request, string $status)
     {
         $request->validate([
-            'periode' => ['required'],
-            'jasa_ruangan_id' => ['nullable'], // nullable for top leaders
+            'periode' => ['required', 'date_format:Y-m'],
+            'jasa_ruangan_id' => ['nullable'], // null untuk top leader
             'pegawai' => ['required', 'array'],
         ]);
 
+        $this->authorizeRows($request);
+
         $periode = Carbon::createFromFormat('Y-m', $request->periode)->startOfMonth();
 
+        // ---- Lock check (1 query, sebelum transaksi) ----
+        $lockedKeys = IndexScoring::where('periode_pengajuan', $periode)
+            ->whereIn('status_pengajuan', $this->lockedStatuses)
+            ->get(['source_type', 'source_id'])
+            ->map(fn($r) => $r->source_type . '_' . $r->source_id)
+            ->flip();
+
+        foreach ($request->pegawai as $pegawai) {
+            $sourceType = $pegawai['source_type'] ?? 'pegawai';
+            $sourceId = $pegawai['source_id'] ?? $pegawai['pegawai_id'];
+
+            if ($lockedKeys->has($sourceType . '_' . $sourceId)) {
+                $label = $sourceType === 'top_leader' ? 'Top Leader' : 'Ruangan ini';
+
+                return $this->redirectToForm($request, $periode)
+                    ->with('error', "$label untuk periode " . $periode->format('F Y') . ' sedang terkunci dan tidak bisa diubah.');
+            }
+        }
+
+        // ---- Simpan ----
         DB::transaction(function () use ($request, $status, $periode) {
             foreach ($request->pegawai as $pegawai) {
                 $sourceType = $pegawai['source_type'] ?? 'pegawai';
                 $sourceId = $pegawai['source_id'] ?? $pegawai['pegawai_id'];
-                $ruanganId = $pegawai['ruangan_id'] ?? $request->jasa_ruangan_id;
 
-                // Lock check
-                $locked = IndexScoring::where('periode_pengajuan', $periode)
-                    ->where('source_type', $sourceType)
-                    ->where('source_id', $sourceId)
-                    ->whereIn('status_pengajuan', $this->lockedStatuses)
-                    ->exists();
+                $ruanganId = $sourceType === 'top_leader'
+                    ? null
+                    : ($pegawai['ruangan_id'] ?? $request->jasa_ruangan_id);
 
-                if ($locked) {
-                    $label = $sourceType === 'top_leader' ? 'Top Leader' : 'Ruangan ini';
-                    return redirect()
-                        ->route('index.scoring.index')
-                        ->with('error', "$label untuk periode " . $periode->format('F Y') . " sedang terkunci dan tidak bisa diubah.");
+                // Non-admin: ruangan selalu ruangannya sendiri
+                if (!$this->isAdmin(Auth::user()) && $sourceType === 'pegawai') {
+                    $ruanganId = Auth::user()->ruangan_id;
                 }
 
                 $data = [
                     'ruangan_id' => $ruanganId,
                     'source_type' => $sourceType,
                     'source_id' => $sourceId,
+                    'pegawai_id' => $sourceType === 'pegawai' ? $sourceId : null,
                     'jabatan' => $pegawai['jabatan'],
                     'pendidikan_formal' => $pegawai['pendidikan_formal'],
-                    'pendidikan_non_formal' => is_numeric($pegawai['pendidikan_non_formal'])
+                    'pendidikan_non_formal' => is_numeric($pegawai['pendidikan_non_formal'] ?? null)
                         ? $pegawai['pendidikan_non_formal']
                         : 0,
                     'gaji_pokok' => (int) str_replace(['.', ','], '', $pegawai['gaji_pokok'] ?? 0),
@@ -384,13 +626,6 @@ class IndexScoringControllers extends Controller
                     'status_pengajuan' => $status,
                 ];
 
-                // Pegawai-specific fields
-                if ($sourceType === 'pegawai') {
-                    $data['pegawai_id'] = $sourceId;
-                } else {
-                    $data['pegawai_id'] = null;
-                }
-
                 IndexScoring::updateOrCreate(
                     [
                         'source_type' => $sourceType,
@@ -402,20 +637,17 @@ class IndexScoringControllers extends Controller
             }
         });
 
-
-
-        return redirect()
-            ->route('index.scoring.index')
+        return $this->redirectToForm($request, $periode)
             ->with(
                 'success',
                 $status === 'draft'
-                ? 'Draft berhasil disimpan.'
-                : 'Pengajuan berhasil dikirim.'
+                    ? 'Draft berhasil disimpan.'
+                    : 'Pengajuan berhasil dikirim.'
             );
     }
 
     /**
-     * Simpan sebagai draft — tidak ada validasi kelengkapan.
+     * Simpan sebagai draft, tanpa validasi kelengkapan.
      */
     public function store(Request $request)
     {
@@ -423,16 +655,27 @@ class IndexScoringControllers extends Controller
     }
 
     /**
-     * Submit final — wajib semua baris (yang punya id_petugas) terisi lengkap.
-     * Divalidasi per ruangan/top leader.
+     * Submit final: semua baris wajib terisi lengkap (Jabatan & Pendidikan Formal).
+     * Divalidasi per ruangan / top leader.
      */
     public function submit(Request $request)
     {
         $request->validate([
-            'periode' => ['required'],
+            'periode' => ['required', 'date_format:Y-m'],
             'jasa_ruangan_id' => ['nullable'],
             'pegawai' => ['required', 'array'],
         ]);
+
+        $this->authorizeRows($request);
+
+        $periode = Carbon::createFromFormat('Y-m', $request->periode)->startOfMonth();
+
+        // Ambil status terkunci sekali saja (bukan query per baris)
+        $lockedKeys = IndexScoring::where('periode_pengajuan', $periode)
+            ->whereIn('status_pengajuan', $this->lockedStatuses)
+            ->get(['source_type', 'source_id'])
+            ->map(fn($r) => $r->source_type . '_' . $r->source_id)
+            ->flip();
 
         $incomplete = [];
 
@@ -440,22 +683,18 @@ class IndexScoringControllers extends Controller
             $sourceType = $pegawai['source_type'] ?? 'pegawai';
             $sourceId = $pegawai['source_id'] ?? $pegawai['pegawai_id'];
 
-            // Only validate if not locked
-            $existing = IndexScoring::where('periode_pengajuan', Carbon::createFromFormat('Y-m', $request->periode)->startOfMonth())
-                ->where('source_type', $sourceType)
-                ->where('source_id', $sourceId)
-                ->first();
-
-            if ($existing && in_array($existing->status_pengajuan, $this->lockedStatuses)) {
-                continue; // Already locked, skip validation
+            // Sudah terkunci: lewati validasi (save() yang akan menolak)
+            if ($lockedKeys->has($sourceType . '_' . $sourceId)) {
+                continue;
             }
 
             $jabatanKosong = empty($pegawai['jabatan']) || (int) $pegawai['jabatan'] === 0;
             $pendidikanKosong = empty($pegawai['pendidikan_formal']) || (int) $pegawai['pendidikan_formal'] === 0;
 
             if ($jabatanKosong || $pendidikanKosong) {
-                $label = $sourceType === 'top_leader' ? ($pegawai['posisi'] ?? $pegawai['nama'] ?? 'Top Leader') : ($pegawai['nama'] ?? 'Pegawai');
-                $incomplete[] = $label;
+                $incomplete[] = $sourceType === 'top_leader'
+                    ? ($pegawai['posisi'] ?? $pegawai['nama'] ?? 'Top Leader')
+                    : ($pegawai['nama'] ?? 'Pegawai');
             }
         }
 
