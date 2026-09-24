@@ -17,7 +17,7 @@
         <div class="alert alert-danger">{{ session('error') }}</div>
     @endif
 
-    @if (auth()->user()->role !== 'admin')
+    @if (auth()->user()->role?->code !== 'admin')
         <div class="alert alert-info">
             Menampilkan pegawai yang diajukan pindah <strong>ke ruangan Anda</strong>.
         </div>
@@ -55,8 +55,8 @@
 
                                     @php
                                         $bolehProses =
-                                            auth()->user()->role === 'admin' ||
-                                            (in_array(auth()->user()->role, ['karu', 'koordinator_karu']) &&
+                                            auth()->user()->role?->code=== 'admin' ||
+                                            (in_array(auth()->user()->role?->code, ['karu', 'koordinator_karu']) &&
                                                 auth()->user()->ruangan_id == $p->ruangan_tujuan_id);
                                     @endphp
 
@@ -80,7 +80,7 @@
                                         </form>
                                     @endif
 
-                                    @if (auth()->user()->role === 'admin')
+                                    @if (auth()->user()->role?->code === 'admin')
                                         <form action="{{ route('pegawai.pindah.batal', $p->id) }}" method="POST"
                                             class="d-inline">
                                             @csrf
