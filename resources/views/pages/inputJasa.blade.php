@@ -21,6 +21,8 @@
     @endif
 
     {{-- FORM INPUT --}}
+    {{-- GANTI card form "Simpan & Generate" di inputJasa.blade.php dengan isi file ini. --}}
+
     <div class="card">
         <div class="card-body">
 
@@ -42,7 +44,7 @@
                         <input type="text" name="total_jasa" class="form-control fw-bold fs-5" required>
                     </div>
 
-                    {{-- KETERANGAN (BARU) --}}
+                    {{-- KETERANGAN --}}
                     <div class="col-md-3">
                         <label class="form-label">Jenis Jasa</label>
                         <select name="keterangan" class="form-select" required>
@@ -64,6 +66,33 @@
 
         </div>
     </div>
+
+    {{-- ===================== MODAL PERINGATAN ===================== --}}
+    <button type="button" id="btnBukaPeringatanGenerate" class="d-none" data-bs-toggle="modal"
+        data-bs-target="#modalPeringatanGenerate"></button>
+
+    <div class="modal fade" id="modalPeringatanGenerate" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Peringatan</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Tutup"></button>
+                </div>
+
+                <div class="modal-body">
+                    Pastikan data ruangan dan persentase <strong>penerima jasa 30%</strong> di menu
+                    <strong>Master Ruangan</strong> sudah benar sebelum generate.
+                    Hasil generate akan mengikuti data tersebut.
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" id="btnLanjutGenerate" class="btn btn-primary">Ya, Generate</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     {{-- LIST PERIODE --}}
     @foreach ($periodes as $periode)
@@ -251,6 +280,26 @@
                 });
 
         }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const form = document.getElementById('formSimpanTotal');
+            const btnLanjut = document.getElementById('btnLanjutGenerate');
+
+            form.addEventListener('submit', function(e) {
+                if (form.dataset.confirmed === '1') return;
+
+                e.preventDefault();
+                document.getElementById('btnBukaPeringatanGenerate').click();
+            });
+
+            btnLanjut.addEventListener('click', function() {
+                this.disabled = true;
+                this.innerText = 'Memproses...';
+
+                form.dataset.confirmed = '1';
+                form.submit();
+            });
+        });
     </script>
 
 @endsection

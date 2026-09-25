@@ -138,6 +138,11 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
         Route::get('/master-ruangan/{id}/toggle-status', [masterRuanganControllers::class, 'toggleStatus'])
             ->name('master.ruangan.toggleStatus');
+
+        Route::post('/master-ruangan/{id}/penerima/aktifkan', [masterRuanganControllers::class, 'aktifkanPenerima'])
+            ->name('master.ruangan.penerima.aktifkan');
+        Route::post('/master-ruangan/{id}/penerima/nonaktifkan', [masterRuanganControllers::class, 'nonaktifkanPenerima'])
+            ->name('master.ruangan.penerima.nonaktifkan');
     });
 
     /*
