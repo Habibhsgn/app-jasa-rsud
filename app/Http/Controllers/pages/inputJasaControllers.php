@@ -44,7 +44,7 @@ class inputJasaControllers extends Controller
         'FARMASI',
         'PENATA ANESTESI',
         'GIZI',
-        'SANITASI & KESLING',
+        'KESLING',
         'IPSRS',
         'INFORMASI & RUJUKAN IGD',
         'REKAM MEDIK',
