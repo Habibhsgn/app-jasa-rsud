@@ -80,6 +80,9 @@
             @php
                 $isLocked = in_array($item->status, ['verifikasi', 'selesai']);
                 $isAdmin = auth()->user()->role?->code === 'admin';
+
+                // [PENDING]
+                $isPending = $item->periode?->keterangan === 'PENDING';
             @endphp
 
             @if ($item->jasaPegawai->count() == 0)
@@ -91,12 +94,15 @@
             @php
                 // Pegawai yang baru masuk ruangan ini dan belum pernah diisi jasanya
                 // sama sekali (kemungkinan besar hasil sinkronisasi otomatis karena pindah).
-                $pegawaiBaruMasuk = $item->jasaPegawai->filter(function ($jp) use ($item) {
-                    return $jp->pegawai &&
-                        $jp->pegawai->ruangan_id == $item->ruangan_id &&
-                        $jp->persen == 0 &&
-                        $jp->nominal == 0;
-                });
+                // [PENDING] Tidak berlaku untuk pending: semua baris memang masih 0.
+                $pegawaiBaruMasuk = $isPending
+                    ? collect()
+                    : $item->jasaPegawai->filter(function ($jp) use ($item) {
+                        return $jp->pegawai &&
+                            $jp->pegawai->ruangan_id == $item->ruangan_id &&
+                            $jp->persen == 0 &&
+                            $jp->nominal == 0;
+                    });
             @endphp
 
             <div class="card mb-4 border-{{ $item->status == 'revisi' ? 'danger' : 'default' }} shadow-sm"
@@ -137,6 +143,17 @@
                         </div>
                     @endif
 
+                    {{-- [PENDING] Info sumber daftar pegawai --}}
+                    @if ($isPending && !$isLocked)
+                        <div class="alert alert-success">
+                            <strong>ℹ️ Jasa Pending.</strong>
+                            Daftar pegawai mengikuti data ruangan pada Jasa Reguler periode
+                            <strong>{{ $item->periode->periode }}</strong>, bukan pegawai saat ini.
+                            Pegawai yang sudah pindah / nonaktif tetap tercantum dan berhak menerima.
+                            Silakan isi pembagiannya.
+                        </div>
+                    @endif
+
                     @if (!$isLocked && $pegawaiBaruMasuk->isNotEmpty())
                         <div class="alert alert-info">
                             <strong>ℹ️ Ada pegawai baru / pindahan yang belum diisi jasanya di ruangan ini:</strong>
@@ -171,7 +188,11 @@
                                         @endphp
 
                                         @php
-                                            $sudahPindah = $p->ruangan_id != $item->ruangan_id;
+                                            $bedaRuangan = $p->ruangan_id != $item->ruangan_id;
+
+                                            // [PENDING] Pindah ruangan itu wajar untuk pending, bukan alasan dikunci
+                                            $sudahPindah = !$isPending && $bedaRuangan;
+
                                             $adaIsinya = $jp->persen > 0 || $jp->nominal > 0;
                                             $disableInput = (!$isAdmin && empty($p->id_petugas)) || $sudahPindah;
                                         @endphp
@@ -181,7 +202,19 @@
                                             {{-- Nama --}}
                                             <td>
                                                 <strong>{{ $p->nama }}</strong>
-                                                <input type="hidden" name="pegawai_id[]" value="{{ $p->id }}">
+
+                                                {{-- pegawai_id hanya dikirim jika input-nya aktif,
+                                                     supaya urutan array persen[] / nominal[] tidak bergeser --}}
+                                                @if (!$isLocked && !$disableInput)
+                                                    <input type="hidden" name="pegawai_id[]" value="{{ $p->id }}">
+                                                @endif
+
+                                                {{-- [PENDING] Info posisi pegawai saat ini --}}
+                                                @if ($isPending && $bedaRuangan)
+                                                    <div class="small text-muted mt-1">
+                                                        Saat ini di: {{ $p->ruangan->nama_ruangan ?? '-' }}
+                                                    </div>
+                                                @endif
 
                                                 @if ($sudahPindah && $adaIsinya)
                                                     <div class="alert alert-warning py-1 px-2 mt-2 mb-0 small">
@@ -373,7 +406,7 @@
                     formSubmit.addEventListener('submit', function(e) {
                         if (!confirm(
                                 'Apakah Anda yakin pembagian sudah pas? Sisa dana Rp 0. Data yang disubmit TIDAK BISA diubah lagi.'
-                                )) {
+                            )) {
                             e.preventDefault();
                         }
                     });
@@ -389,7 +422,7 @@
 
                     if (!confirm(
                             `Hapus baris ${nama} dari draft ini? Nominal Rp ${nominal} akan bebas untuk dialokasikan ke pegawai lain.`
-                            )) {
+                        )) {
                         return;
                     }
 

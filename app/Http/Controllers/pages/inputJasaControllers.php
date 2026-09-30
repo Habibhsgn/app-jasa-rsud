@@ -141,7 +141,8 @@ class inputJasaControllers extends Controller
     }
 
     // =====================================================
-    // PENDING: salin snapshot dari REGULER di bulan yang sama
+    // PENDING: salin DAFTAR ruangan & pegawai dari REGULER bulan yang sama.
+    // Persen & nominal pegawai dikosongkan (diisi ulang oleh KARU).
     // =====================================================
     private function generatePending(Request $request, int $total)
     {
@@ -176,7 +177,7 @@ class inputJasaControllers extends Controller
                 ->with('error', 'Jasa PENDING ' . $bulan . ' sudah pernah dibuat.');
         }
 
-        // Snapshot ruangan periode reguler (TIDAK difilter is_active / penerima_jasa master)
+        // Daftar ruangan pada reguler bulan tsb (TIDAK difilter is_active / penerima_jasa master)
         $ruanganRef = JasaRuangan::with('ruangan')
             ->where('periode_id', $referensi->id)
             ->orderBy('id')
@@ -195,24 +196,27 @@ class inputJasaControllers extends Controller
             );
         }
 
-        // Snapshot pegawai periode reguler (TIDAK melihat ruangan/status pegawai saat ini)
+        // Daftar pegawai per ruangan pada reguler bulan tsb
+        // (TIDAK melihat ruangan/status pegawai saat ini)
         $pegawaiRef = JasaPegawai::whereIn('jasa_ruangan_id', $ruanganRef->pluck('id'))
+            ->whereNotNull('pegawai_id')
             ->orderBy('id')
             ->get()
             ->groupBy('jasa_ruangan_id');
 
         $tanpaPegawai = $ruanganRef
-            ->filter(fn($jr) => $pegawaiRef->get($jr->id, collect())->sum(fn($p) => (float) $p->persen) <= 0)
+            ->filter(fn($jr) => $pegawaiRef->get($jr->id, collect())->isEmpty())
             ->map(fn($jr) => $jr->ruangan->nama_ruangan ?? 'ID ' . $jr->ruangan_id);
 
         if ($tanpaPegawai->isNotEmpty()) {
             return back()->withInput()->with(
                 'error',
-                'Gagal generate pending! Ruangan berikut belum punya pembagian pegawai di jasa REGULER ' . $bulan . ': '
+                'Gagal generate pending! Ruangan berikut tidak punya data pegawai di jasa REGULER ' . $bulan . ': '
                     . $tanpaPegawai->implode(', ')
             );
         }
 
+        // Nominal per ruangan tetap dihitung (alokasi yang akan dibagi KARU)
         $bobotRuangan   = $ruanganRef->mapWithKeys(fn($jr) => [$jr->id => (float) $jr->persen])->all();
         $nominalRuangan = $this->bagiProporsional($bobotRuangan, $total);
 
@@ -227,30 +231,30 @@ class inputJasaControllers extends Controller
                 'periode_referensi_id' => $referensi->id,
             ]);
 
-            foreach ($ruanganRef as $jrLama) {
-                $nomRuangan = $nominalRuangan[$jrLama->id];
+            $jumlahPegawai = 0;
 
+            foreach ($ruanganRef as $jrLama) {
                 $jrBaru = JasaRuangan::create([
                     'periode_id' => $periode->id,
                     'ruangan_id' => $jrLama->ruangan_id,
                     'persen'     => $jrLama->persen,
-                    'nominal'    => $nomRuangan,
+                    'nominal'    => $nominalRuangan[$jrLama->id],
                     'status'     => 'draft',
-                    'keterangan' => 'Pending dari jasa reguler ' . $bulan,
+                    'keterangan' => 'PENDING',
                 ]);
 
-                $listPegawai    = $pegawaiRef->get($jrLama->id);
-                $bobotPegawai   = $listPegawai->mapWithKeys(fn($p) => [$p->id => (float) $p->persen])->all();
-                $nominalPegawai = $this->bagiProporsional($bobotPegawai, $nomRuangan);
+                // Hanya salin DAFTAR pegawai, pembagian dikosongkan
+                $pegawaiIds = $pegawaiRef->get($jrLama->id)->pluck('pegawai_id')->unique();
 
-                foreach ($listPegawai as $pLama) {
+                foreach ($pegawaiIds as $pegawaiId) {
                     JasaPegawai::create([
                         'jasa_ruangan_id' => $jrBaru->id,
-                        'pegawai_id'      => $pLama->pegawai_id,
-                        'persen'          => $pLama->persen,
-                        'nominal'         => $nominalPegawai[$pLama->id],
-                        'keterangan'      => $pLama->keterangan,
+                        'pegawai_id'      => $pegawaiId,
+                        'persen'          => 0,
+                        'nominal'         => 0,
+                        'keterangan'      => '-',
                     ]);
+                    $jumlahPegawai++;
                 }
             }
 
@@ -258,7 +262,8 @@ class inputJasaControllers extends Controller
 
             return redirect()
                 ->route('jasa.index', ['periode' => $periode->id])
-                ->with('success', 'Berhasil! Jasa PENDING ' . $bulan . ' digenerate untuk ' . $ruanganRef->count() . ' ruangan beserta pegawainya.');
+                ->with('success', 'Berhasil! Jasa PENDING ' . $bulan . ' digenerate untuk ' . $ruanganRef->count()
+                    . ' ruangan dan ' . $jumlahPegawai . ' pegawai. Pembagian pegawai diisi oleh KARU.');
         } catch (\Exception $e) {
             DB::rollBack();
 

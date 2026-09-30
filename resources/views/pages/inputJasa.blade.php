@@ -345,8 +345,8 @@
                     btnGen.disabled = true;
                 } else {
                     setInfo('alert-success',
-                        '✔ Mengikuti data ruangan &amp; pegawai <strong>Reguler ' + bulan +
-                        '</strong>, bukan data master saat ini.');
+                        '✔ Daftar ruangan &amp; pegawai mengikuti <strong>Reguler ' + bulan +
+                        '</strong>. Pembagian per pegawai akan diisi oleh KARU.');
                 }
             }
 
@@ -363,12 +363,11 @@
 
                 isiModal.innerHTML = selKet.value === 'PENDING' ?
                     'Jasa <strong>PENDING ' + bulan +
-                    '</strong> akan menyalin ruangan, pegawai, dan persentase dari ' +
+                    '</strong> akan menyalin <strong>daftar ruangan dan pegawai</strong> dari ' +
                     '<strong>Reguler ' + bulan +
-                    '</strong>. Nominal dihitung ulang dari total dana pending yang diinput.' :
+                    '</strong>. Persen &amp; nominal per pegawai dikosongkan dan diisi oleh KARU.' :
                     'Pastikan data ruangan dan persentase <strong>penerima jasa 30%</strong> di menu ' +
                     '<strong>Master Ruangan</strong> sudah benar sebelum generate. Hasil generate akan mengikuti data tersebut.';
-
                 document.getElementById('btnBukaPeringatanGenerate').click();
             });
 
