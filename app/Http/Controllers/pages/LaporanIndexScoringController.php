@@ -297,11 +297,16 @@ class LaporanIndexScoringController extends Controller
         |--------------------------------------------------------------------------
         | Header tabel
         |--------------------------------------------------------------------------
+        |
+        | Jabatan Ruangan = tabel pegawai (field jabatan)
+        | Jabatan         = tabel index scoring
+        |
         */
 
         $headers = [
             'No',
             'Nama',
+            'Jabatan Ruangan',
             'NIP/NIP3K',
             'Jabatan',
             'Pend. Formal',
@@ -329,6 +334,7 @@ class LaporanIndexScoringController extends Controller
             return [
                 $number,
                 $row->pegawai?->nama ?? '-',
+                $row->pegawai?->jabatan ?? '-',
                 $row->pegawai?->id_petugas !== null
                     ? (string) $row->pegawai->id_petugas
                     : '-',
@@ -387,7 +393,7 @@ class LaporanIndexScoringController extends Controller
         | Helper menulis data ke Excel
         |--------------------------------------------------------------------------
         |
-        | Kolom C = NIP/NIP3K.
+        | Kolom D = NIP/NIP3K.
         | Dipaksa menjadi TYPE_STRING.
         |
         */
@@ -406,14 +412,14 @@ class LaporanIndexScoringController extends Controller
 
                 /*
                 |--------------------------------------------------------------------------
-                | Kolom C = NIP/NIP3K
+                | Kolom D = NIP/NIP3K
                 |--------------------------------------------------------------------------
                 */
 
-                if ($column === 3) {
+                if ($column === 4) {
 
                     $sheet->setCellValueExplicit(
-                        "C{$excelRow}",
+                        "D{$excelRow}",
                         (string) $value,
                         DataType::TYPE_STRING
                     );
@@ -435,9 +441,9 @@ class LaporanIndexScoringController extends Controller
         |
         | Metadata dibuat benar-benar SATU CELL per baris:
         |
-        | A3:Q3 = Nama Ruang : ...
-        | A4:Q4 = Nama Ka. Ruang : ...
-        | A5:Q5 = Bulan/Periode : ...
+        | A3:R3 = Nama Ruang : ...
+        | A4:R4 = Nama Ka. Ruang : ...
+        | A5:R5 = Bulan/Periode : ...
         |
         */
 
@@ -455,7 +461,7 @@ class LaporanIndexScoringController extends Controller
             */
 
             $sheet->mergeCells(
-                'A1:Q1'
+                'A1:R1'
             );
 
             $sheet->setCellValue(
@@ -464,7 +470,7 @@ class LaporanIndexScoringController extends Controller
             );
 
             $sheet->getStyle(
-                'A1:Q1'
+                'A1:R1'
             )->applyFromArray([
 
                 'font' => [
@@ -491,7 +497,7 @@ class LaporanIndexScoringController extends Controller
             */
 
             $sheet->mergeCells(
-                'A3:Q3'
+                'A3:R3'
             );
 
             $sheet->setCellValue(
@@ -507,7 +513,7 @@ class LaporanIndexScoringController extends Controller
             */
 
             $sheet->mergeCells(
-                'A4:Q4'
+                'A4:R4'
             );
 
             $sheet->setCellValue(
@@ -523,7 +529,7 @@ class LaporanIndexScoringController extends Controller
             */
 
             $sheet->mergeCells(
-                'A5:Q5'
+                'A5:R5'
             );
 
             $periodeLabel = 'Semua Periode';
@@ -559,7 +565,7 @@ class LaporanIndexScoringController extends Controller
             */
 
             $sheet->getStyle(
-                'A3:Q5'
+                'A3:R5'
             )->applyFromArray([
 
                 'alignment' => [
@@ -575,10 +581,6 @@ class LaporanIndexScoringController extends Controller
             |--------------------------------------------------------------------------
             | Bold hanya label menggunakan Rich Text
             |--------------------------------------------------------------------------
-            |
-            | Karena setiap informasi merupakan satu cell,
-            | kita gunakan RichText supaya hanya label yang bold.
-            |
             */
 
             $namaRuangRichText =
@@ -600,7 +602,6 @@ class LaporanIndexScoringController extends Controller
                 'A3',
                 $namaRuangRichText
             );
-
 
             /*
             |--------------------------------------------------------------------------
@@ -628,7 +629,6 @@ class LaporanIndexScoringController extends Controller
                 $namaKaruRichText
             );
 
-
             /*
             |--------------------------------------------------------------------------
             | Periode Rich Text
@@ -654,7 +654,6 @@ class LaporanIndexScoringController extends Controller
                 'A5',
                 $periodeRichText
             );
-
 
             /*
             |--------------------------------------------------------------------------
@@ -697,7 +696,7 @@ class LaporanIndexScoringController extends Controller
             */
 
             $sheet->getStyle(
-                "A{$headerRow}:Q{$headerRow}"
+                "A{$headerRow}:R{$headerRow}"
             )->applyFromArray([
 
                 'font' => [
@@ -769,7 +768,7 @@ class LaporanIndexScoringController extends Controller
             */
 
             $sheet->getStyle(
-                "A{$startRow}:Q{$lastRow}"
+                "A{$startRow}:R{$lastRow}"
             )->applyFromArray([
 
                 'borders' => [
@@ -795,17 +794,17 @@ class LaporanIndexScoringController extends Controller
             */
 
             $centerColumns = [
-                'A',
-                'C',
-                'E',
-                'F',
-                'H',
-                'I',
-                'J',
-                'K',
-                'L',
-                'M',
-                'N',
+                'A', // No
+                'D', // NIP/NIP3K
+                'F', // Pend. Formal
+                'G', // Pend. Non Formal
+                'I', // Risk
+                'J', // Emergency
+                'K', // Cuti
+                'L', // Izin
+                'M', // Tanpa Izin
+                'N', // Telat
+                'O', // Sikap
             ];
 
             foreach (
@@ -827,7 +826,7 @@ class LaporanIndexScoringController extends Controller
             */
 
             $sheet->getStyle(
-                "G{$startRow}:G{$lastRow}"
+                "H{$startRow}:H{$lastRow}"
             )->getNumberFormat()
                 ->setFormatCode(
                     '#,##0'
@@ -840,7 +839,7 @@ class LaporanIndexScoringController extends Controller
             */
 
             $sheet->getStyle(
-                "O{$startRow}:O{$lastRow}"
+                "P{$startRow}:P{$lastRow}"
             )->getNumberFormat()
                 ->setFormatCode(
                     '#,##0.00'
@@ -853,7 +852,7 @@ class LaporanIndexScoringController extends Controller
             */
 
             $sheet->getStyle(
-                "Q{$startRow}:Q{$lastRow}"
+                "R{$startRow}:R{$lastRow}"
             )->getNumberFormat()
                 ->setFormatCode(
                     '#,##0.00'
@@ -866,7 +865,7 @@ class LaporanIndexScoringController extends Controller
             */
 
             $sheet->getStyle(
-                "C{$startRow}:C{$lastRow}"
+                "D{$startRow}:D{$lastRow}"
             )->getNumberFormat()
                 ->setFormatCode('@');
         };
@@ -881,23 +880,24 @@ class LaporanIndexScoringController extends Controller
 
             $widths = [
 
-                'A' => 7,
-                'B' => 30,
-                'C' => 22,
-                'D' => 20,
-                'E' => 15,
-                'F' => 18,
-                'G' => 18,
-                'H' => 10,
-                'I' => 12,
-                'J' => 10,
-                'K' => 10,
-                'L' => 14,
-                'M' => 10,
-                'N' => 10,
-                'O' => 15,
-                'P' => 35,
-                'Q' => 18,
+                'A' => 7,   // No
+                'B' => 30,  // Nama
+                'C' => 25,  // Jabatan Ruangan
+                'D' => 22,  // NIP/NIP3K
+                'E' => 20,  // Jabatan
+                'F' => 15,  // Pend. Formal
+                'G' => 18,  // Pend. Non Formal
+                'H' => 18,  // Gaji Pokok
+                'I' => 10,  // Risk
+                'J' => 12,  // Emergency
+                'K' => 10,  // Cuti
+                'L' => 10,  // Izin
+                'M' => 14,  // Tanpa Izin
+                'N' => 10,  // Telat
+                'O' => 10,  // Sikap
+                'P' => 15,  // Jumlah
+                'Q' => 35,  // Keterangan
+                'R' => 18,  // Jumlah Akhir
             ];
 
             foreach (
@@ -995,11 +995,11 @@ class LaporanIndexScoringController extends Controller
         );
 
         $sheet->mergeCells(
-            "A{$totalRow}:N{$totalRow}"
+            "A{$totalRow}:O{$totalRow}"
         );
 
         $sheet->setCellValue(
-            "O{$totalRow}",
+            "P{$totalRow}",
             $rows->sum(
                 fn($row) =>
                 (float) (
@@ -1009,12 +1009,12 @@ class LaporanIndexScoringController extends Controller
         );
 
         $sheet->setCellValue(
-            "P{$totalRow}",
+            "Q{$totalRow}",
             ''
         );
 
         $sheet->setCellValue(
-            "Q{$totalRow}",
+            "R{$totalRow}",
             $rows->sum(
                 fn($row) =>
                 (float) (
@@ -1047,7 +1047,7 @@ class LaporanIndexScoringController extends Controller
         */
 
         $sheet->getStyle(
-            "A{$totalRow}:Q{$totalRow}"
+            "A{$totalRow}:R{$totalRow}"
         )->applyFromArray([
 
             'font' => [
@@ -1081,14 +1081,14 @@ class LaporanIndexScoringController extends Controller
         */
 
         $sheet->getStyle(
-            "O{$totalRow}"
+            "P{$totalRow}"
         )->getNumberFormat()
             ->setFormatCode(
                 '#,##0.00'
             );
 
         $sheet->getStyle(
-            "Q{$totalRow}"
+            "R{$totalRow}"
         )->getNumberFormat()
             ->setFormatCode(
                 '#,##0.00'
@@ -1113,12 +1113,6 @@ class LaporanIndexScoringController extends Controller
         $sheet->freezePane(
             'A8'
         );
-
-        /*
-        |--------------------------------------------------------------------------
-        | TIDAK ADA AUTOFILTER
-        |--------------------------------------------------------------------------
-        */
 
         /*
         |--------------------------------------------------------------------------
@@ -1319,11 +1313,11 @@ class LaporanIndexScoringController extends Controller
             );
 
             $roomSheet->mergeCells(
-                "A{$roomTotalRow}:N{$roomTotalRow}"
+                "A{$roomTotalRow}:O{$roomTotalRow}"
             );
 
             $roomSheet->setCellValue(
-                "O{$roomTotalRow}",
+                "P{$roomTotalRow}",
                 $roomRows->sum(
                     fn($row) =>
                     (float) (
@@ -1333,12 +1327,12 @@ class LaporanIndexScoringController extends Controller
             );
 
             $roomSheet->setCellValue(
-                "P{$roomTotalRow}",
+                "Q{$roomTotalRow}",
                 ''
             );
 
             $roomSheet->setCellValue(
-                "Q{$roomTotalRow}",
+                "R{$roomTotalRow}",
                 $roomRows->sum(
                     fn($row) =>
                     (float) (
@@ -1371,7 +1365,7 @@ class LaporanIndexScoringController extends Controller
             */
 
             $roomSheet->getStyle(
-                "A{$roomTotalRow}:Q{$roomTotalRow}"
+                "A{$roomTotalRow}:R{$roomTotalRow}"
             )->applyFromArray([
 
                 'font' => [
@@ -1406,7 +1400,7 @@ class LaporanIndexScoringController extends Controller
 
             $roomSheet
                 ->getStyle(
-                    "O{$roomTotalRow}"
+                    "P{$roomTotalRow}"
                 )
                 ->getNumberFormat()
                 ->setFormatCode(
@@ -1415,7 +1409,7 @@ class LaporanIndexScoringController extends Controller
 
             $roomSheet
                 ->getStyle(
-                    "Q{$roomTotalRow}"
+                    "R{$roomTotalRow}"
                 )
                 ->getNumberFormat()
                 ->setFormatCode(
@@ -1441,12 +1435,6 @@ class LaporanIndexScoringController extends Controller
             $roomSheet->freezePane(
                 'A8'
             );
-
-            /*
-            |--------------------------------------------------------------------------
-            | Tidak ada AutoFilter
-            |--------------------------------------------------------------------------
-            */
         }
 
         /*

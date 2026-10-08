@@ -12,6 +12,7 @@ class Ruangan extends Model
         'bidang_id',
         'karu_id',
         'persen_default',
+        'penerima_jasa',
         'resiko',
         'emergency',
         'is_active',

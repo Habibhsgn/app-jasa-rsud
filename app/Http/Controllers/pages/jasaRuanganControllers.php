@@ -63,6 +63,12 @@ class jasaRuanganControllers extends Controller
                 continue;
             }
 
+            // [PENDING] Daftar pegawai pending adalah snapshot reguler bulan tsb,
+            // jadi pegawai yang SAAT INI ada di ruangan tidak boleh ditambahkan.
+            if ($this->isPending($item)) {
+                continue;
+            }
+
             $currentPegawaiIds = Pegawai::where('ruangan_id', $item->ruangan_id)
                 ->pluck('id');
 
@@ -166,7 +172,7 @@ class jasaRuanganControllers extends Controller
      */
     public function hapusDariDraft($jasaPegawaiId)
     {
-        $jp = JasaPegawai::with('jasaRuangan')->find($jasaPegawaiId);
+        $jp = JasaPegawai::with('jasaRuangan.periode')->find($jasaPegawaiId);
 
         if (!$jp) {
             return response()->json([
@@ -175,11 +181,19 @@ class jasaRuanganControllers extends Controller
             ], 404);
         }
 
-        if (Auth::user()->role?->code?->code !== 'admin') {
+        if (Auth::user()->role?->code !== 'admin') {
             return response()->json([
                 'success' => false,
                 'message' => 'Hanya admin yang boleh menghapus baris ini.'
             ], 403);
+        }
+
+        // [PENDING] Pegawai yang sudah pindah tetap berhak atas jasa pending bulan tsb
+        if ($this->isPending($jp->jasaRuangan)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Baris jasa PENDING tidak bisa dihapus karena pegawai tetap berhak atas jasa bulan tersebut.'
+            ], 422);
         }
 
         if (in_array($jp->jasaRuangan->status, ['verifikasi', 'selesai'])) {
@@ -195,5 +209,11 @@ class jasaRuanganControllers extends Controller
             'success' => true,
             'message' => 'Baris pegawai berhasil dihapus dari draft.'
         ]);
+    }
+
+    // [PENDING] helper
+    private function isPending(?JasaRuangan $jasa): bool
+    {
+        return $jasa?->periode?->keterangan === 'PENDING';
     }
 }
