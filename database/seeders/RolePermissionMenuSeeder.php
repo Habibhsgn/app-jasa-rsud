@@ -52,6 +52,10 @@ class RolePermissionMenuSeeder extends Seeder
 
             ['code' => 'inacbg.index',                           'name' => 'INA-CBG',                        'module' => 'inacbg'],
             ['code' => 'inacbg.export',                          'name' => 'Export INA-CBG',               'module' => 'inacbg'],
+            ['code' => 'inacbg.keterangan.all',                  'name' => 'Lihat Semua Keterangan INA-CBG', 'module' => 'inacbg'],
+            ['code' => 'inacbg.keterangan.lab',                  'name' => 'Keterangan INA-CBG: Lab',        'module' => 'inacbg'],
+            ['code' => 'inacbg.keterangan.radiologi',            'name' => 'Keterangan INA-CBG: Radiologi',  'module' => 'inacbg'],
+            ['code' => 'inacbg.keterangan.utd',                  'name' => 'Keterangan INA-CBG: UTD',        'module' => 'inacbg'],
 
             ['code' => 'laporan.jasa.index',                     'name' => 'Laporan Jasa',                   'module' => 'laporan'],
 
@@ -99,6 +103,18 @@ class RolePermissionMenuSeeder extends Seeder
             'manajemen' => [
                 'name' => 'Manajemen',
                 'permissions' => ['dashboard', 'management.index.scoring.index', 'laporan.jasa.index', 'topleader.index', 'pelayanan.index'],
+            ],
+            'petugas_lab' => [
+                'name' => 'Petugas Lab',
+                'permissions' => ['dashboard', 'inacbg.index', 'inacbg.keterangan.lab'],
+            ],
+            'petugas_radiologi' => [
+                'name' => 'Petugas Radiologi',
+                'permissions' => ['dashboard', 'inacbg.index', 'inacbg.keterangan.radiologi'],
+            ],
+            'petugas_utd' => [
+                'name' => 'Petugas UTD',
+                'permissions' => ['dashboard', 'inacbg.index', 'inacbg.keterangan.utd'],
             ],
         ];
 
