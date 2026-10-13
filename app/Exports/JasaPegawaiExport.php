@@ -7,20 +7,18 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 class JasaPegawaiExport implements WithMultipleSheets
 {
     protected $data;
+    protected $jenis; // null | REGULER | PENDING
 
-    public function __construct($data)
+    public function __construct($data, $jenis = null)
     {
-        $this->data = $data;
+        $this->data  = $data;
+        $this->jenis = $jenis;
     }
 
     public function sheets(): array
     {
-        $sheets = [];
+        $sheets = [new SemuaRuanganSheet($this->data, $this->jenis)];
 
-        // 1. Panggil class KHUSUS GABUNGAN (kirim semua data)
-        $sheets[] = new SemuaRuanganSheet($this->data);
-
-        // 2. Loop class KHUSUS PER RUANGAN (kirim satu per satu)
         foreach ($this->data as $item) {
             $sheets[] = new PerRuanganSheet($item);
         }

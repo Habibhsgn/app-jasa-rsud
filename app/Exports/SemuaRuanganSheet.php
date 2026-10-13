@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\JasaPegawai;
+use Carbon\Carbon;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -13,24 +14,31 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class SemuaRuanganSheet implements FromCollection, WithTitle, WithHeadings, WithMapping, WithCustomStartCell, WithStyles
 {
-    protected $data; // Koleksi JasaRuangan
+    protected $data;   // koleksi JasaRuangan
+    protected $jenis;  // null | REGULER | PENDING
     private $rowNumber = 0;
 
-    public function __construct($data)
+    public function __construct($data, $jenis = null)
     {
-        $this->data = $data;
+        $this->data  = $data;
+        $this->jenis = $jenis;
     }
 
     public function title(): string
     {
-        return 'GABUNGAN SEMUA RUANGAN';
+        return match ($this->jenis) {
+            'PENDING' => 'GABUNGAN PENDING',
+            'REGULER' => 'GABUNGAN REGULER',
+            default   => 'GABUNGAN SEMUA',
+        };
     }
 
     public function collection()
     {
-        // Ambil semua JasaPegawai yang terkait dengan koleksi JasaRuangan yang dikirim
-        return JasaPegawai::with(['pegawai', 'jasaRuangan.ruangan'])
+        return JasaPegawai::with(['pegawai', 'jasaRuangan.ruangan', 'jasaRuangan.periode'])
             ->whereIn('jasa_ruangan_id', $this->data->pluck('id'))
+            ->orderBy('jasa_ruangan_id')
+            ->orderBy('id')
             ->get();
     }
 
@@ -42,37 +50,52 @@ class SemuaRuanganSheet implements FromCollection, WithTitle, WithHeadings, With
     public function map($jp): array
     {
         $this->rowNumber++;
+        $ruangan = $jp->jasaRuangan?->ruangan?->nama_ruangan ?? '-';
+
         return [
             $this->rowNumber,
-            $jp->pegawai->nama,
-            $jp->pegawai->jabatan,
+            ($jp->pegawai?->nama ?? '(Pegawai dihapus)') . ' (' . $ruangan . ')',
+            $jp->pegawai?->jabatan ?? '-',
+            $jp->jasaRuangan?->periode?->keterangan ?? '-',
             $jp->nominal,
             $jp->keterangan,
-            $jp->persen . '%'
+            (float) $jp->persen . '%',
         ];
     }
 
     public function headings(): array
     {
-        return ["No.", "Nama (Ruangan)", "Jabatan Ruang", "Jasa 30%", "Keterangan", "%"];
+        $labelJasa = match ($this->jenis) {
+            'PENDING' => 'Jasa Pending',
+            'REGULER' => 'Jasa 30%',
+            default   => 'Jasa',
+        };
+
+        return ['No.', 'Nama (Ruangan)', 'Jabatan Ruang', 'Jenis', $labelJasa, 'Keterangan', '%'];
     }
 
     public function styles(Worksheet $sheet)
     {
-        $firstItem = $this->data->first();
-        $periodeArray = explode(' ', $firstItem->periode->periode ?? ' ');
-        $bulan = $periodeArray[0] ?? '-';
-        $tahun = $periodeArray[1] ?? '-';
+        $first = $this->data->first();
+        $bulan = '-';
+        $tahun = '-';
 
-        // Tulis Header sesuai style asli Anda
+        if ($this->data->pluck('periode.periode')->unique()->count() === 1 && $first?->periode?->periode) {
+            $c = Carbon::parse($first->periode->periode . '-01');
+            $bulan = $c->translatedFormat('F');
+            $tahun = $c->format('Y');
+        } else {
+            $bulan = 'Semua Periode';
+        }
+
+        $jenisLabel = $this->jenis ? ucfirst(strtolower($this->jenis)) : 'Reguler & Pending';
+
         $sheet->setCellValue('A1', 'Nama: Admin Pusat');
-        $sheet->setCellValue('A2', 'Ruang: Semua Ruangan');
+        $sheet->setCellValue('A2', 'Ruang: Semua Ruangan (' . $jenisLabel . ')');
         $sheet->setCellValue('A3', 'Bulan: ' . $bulan);
         $sheet->setCellValue('A4', 'Tahun: ' . $tahun);
         $sheet->setCellValue('A5', 'Total Nilai: ' . number_format($this->data->sum('nominal'), 0, ',', '.'));
 
-        return [
-            7 => ['font' => ['bold' => true]],
-        ];
+        return [7 => ['font' => ['bold' => true]]];
     }
 }
