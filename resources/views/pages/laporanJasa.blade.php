@@ -12,29 +12,28 @@
             <div class="d-flex gap-2">
 
                 <form method="GET" action="{{ route('laporan.jasa.index') }}" class="d-flex gap-2">
-
-                    <select name="periode_id" class="form-select">
+                    <select name="periode" class="form-select">
                         <option value="">Semua Periode</option>
-
                         @foreach ($periode as $p)
-                            <option value="{{ $p->id }}" {{ request('periode_id') == $p->id ? 'selected' : '' }}>
-                                {{ $p->periode }}
+                            <option value="{{ $p }}" {{ request('periode') == $p ? 'selected' : '' }}>
+                                {{ \Carbon\Carbon::parse($p . '-01')->translatedFormat('F Y') }}
                             </option>
                         @endforeach
                     </select>
 
-                    <button type="submit" class="btn btn-primary">
-                        Filter
-                    </button>
+                    <select name="jenis" class="form-select">
+                        <option value="">Semua Jenis</option>
+                        <option value="REGULER" {{ request('jenis') == 'REGULER' ? 'selected' : '' }}>Reguler (30%)</option>
+                        <option value="PENDING" {{ request('jenis') == 'PENDING' ? 'selected' : '' }}>Pending</option>
+                    </select>
+
+                    <button type="submit" class="btn btn-primary">Filter</button>
                 </form>
 
-                <a href="{{ route('laporan.jasa.export', [
-                    'periode_id' => request('periode_id'),
-                ]) }}"
+                <a href="{{ route('laporan.jasa.export', ['periode' => request('periode'), 'jenis' => request('jenis')]) }}"
                     class="btn btn-success">
                     📗 Download Excel
                 </a>
-
                 <button onclick="window.print()" class="btn btn-secondary">
                     🖨️ Cetak Laporan
                 </button>
@@ -50,7 +49,12 @@
             <div class="card mb-4 border-success">
                 <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
                     <div>
-                        <strong>Periode:</strong> {{ $item->periode->periode ?? '-' }} |
+                        <strong>Periode:</strong>
+                        {{ $item->periode?->periode ? \Carbon\Carbon::parse($item->periode->periode . '-01')->translatedFormat('F Y') : '-' }}
+                        <span
+                            class="badge {{ $item->periode?->keterangan === 'PENDING' ? 'bg-warning text-dark' : 'bg-light text-success' }}">
+                            {{ $item->periode?->keterangan ?? '-' }}
+                        </span> |
                         <strong>Ruangan:</strong> {{ $item->ruangan->nama_ruangan ?? '-' }}
                     </div>
                     <div>
@@ -76,39 +80,25 @@
                                     $totalPersen = 0;
                                     $totalNominal = 0;
                                 @endphp
-                                {{-- FIX: sumber data histori diambil dari jasaPegawai (data yang benar-benar
-                                 disubmit & terkunci), bukan dari relasi pegawai() yang live berdasarkan
-                                 ruangan_id pegawai SAAT INI. Kalau pegawai sudah pindah ruangan setelah
-                                 laporan ini di-lock, dia tetap harus muncul di ruangan asalnya di sini. --}}
                                 @foreach ($item->jasaPegawai as $index => $jp)
                                     @php
                                         $p = $jp->pegawai;
-
-                                        if (!$p) {
-                                            continue;
-                                        } // jaga-jaga kalau pegawai sudah dihapus permanen
-                                    @endphp
-                                    @php
                                         $persen = $jp->persen;
                                         $nominal = $jp->nominal;
-
                                         $totalPersen += $persen;
                                         $totalNominal += $nominal;
-
-                                        $sudahPindah = $p->ruangan_id != $item->ruangan_id;
+                                        $sudahPindah = $p && $p->ruangan_id != $item->ruangan_id;
                                     @endphp
                                     <tr>
                                         <td class="text-center">{{ $index + 1 }}</td>
                                         <td>
-                                            {{ $p->nama }}
+                                            {{ $p?->nama ?? '(Pegawai dihapus)' }}
                                             @if ($sudahPindah)
-                                                <br>
-                                                <span class="badge bg-warning text-dark">
-                                                    Sekarang di {{ $p->ruangan->nama_ruangan ?? '-' }}
-                                                </span>
+                                                <br><span class="badge bg-warning text-dark">Sekarang di
+                                                    {{ $p->ruangan->nama_ruangan ?? '-' }}</span>
                                             @endif
                                         </td>
-                                        <td>{{ $p->jabatan }}</td>
+                                        <td>{{ $p?->jabatan ?? '-' }}</td>
                                         <td>{{ (float) $persen }}%</td>
                                         <td>Rp {{ number_format($nominal, 0, ',', '.') }}</td>
                                         <td>{{ $jp->keterangan ?: '-' }}</td>

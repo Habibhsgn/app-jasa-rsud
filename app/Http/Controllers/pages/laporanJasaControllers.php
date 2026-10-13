@@ -7,58 +7,62 @@ use Illuminate\Http\Request;
 use App\Models\JasaRuangan;
 use App\Models\PeriodeJasa;
 use App\Exports\JasaPegawaiExport;
+use Carbon\Carbon;
 use Maatwebsite\Excel\Facades\Excel;
 
 class laporanJasaControllers extends Controller
 {
-    public function index(Request $request)
+    private function buildQuery(Request $request)
     {
-        $periodeId = $request->periode_id;
-
-        $query = JasaRuangan::with(['periode', 'ruangan', 'jasaPegawai.pegawai'])
+        $query = JasaRuangan::with(['periode', 'ruangan', 'jasaPegawai.pegawai.ruangan'])
             ->where('status', 'selesai');
 
-        if ($periodeId) {
-            $query->where('periode_id', $periodeId);
+        // Filter bulan, contoh "2026-01"
+        if ($request->filled('periode')) {
+            $query->whereHas('periode', fn($q) => $q->where('periode', $request->periode));
         }
 
-        $data = $query->get();
+        // Filter jenis: REGULER / PENDING
+        if ($request->filled('jenis')) {
+            $query->whereHas('periode', fn($q) => $q->where('keterangan', strtoupper($request->jenis)));
+        }
 
-        $periode = PeriodeJasa::orderBy('periode', 'desc')->get();
+        return $query->orderBy('periode_id')->orderBy('ruangan_id');
+    }
 
-        return view('pages.laporanJasa', compact(
-            'data',
-            'periode',
-            'periodeId'
-        ));
+    public function index(Request $request)
+    {
+        $data = $this->buildQuery($request)->get();
+
+        $periode = PeriodeJasa::select('periode')
+            ->distinct()
+            ->orderBy('periode', 'desc')
+            ->pluck('periode');
+
+        return view('pages.laporanJasa', compact('data', 'periode'));
     }
 
     public function exportExcel(Request $request)
     {
-        $periodeId = $request->periode_id;
+        $data = $this->buildQuery($request)->get();
 
-        $query = JasaRuangan::with(['periode', 'ruangan', 'jasaPegawai.pegawai'])
-            ->where('status', 'selesai');
-
-        if ($periodeId) {
-            $query->where('periode_id', $periodeId);
+        if ($data->isEmpty()) {
+            return back()->with('error', 'Tidak ada data untuk diexport.');
         }
 
-        $data = $query->get();
+        $jenis = $request->filled('jenis') ? strtoupper($request->jenis) : null;
 
         $namaPeriode = 'Semua_Periode';
-
-        if ($periodeId) {
-            $p = PeriodeJasa::find($periodeId);
-
-            if ($p) {
-                $namaPeriode = str_replace(' ', '_', $p->periode);
-            }
+        if ($request->filled('periode')) {
+            $namaPeriode = str_replace(
+                ' ',
+                '_',
+                Carbon::parse($request->periode . '-01')->translatedFormat('F_Y')
+            );
         }
 
-        return Excel::download(
-            new JasaPegawaiExport($data),
-            'Laporan_Jasa_' . $namaPeriode . '.xlsx'
-        );
+        $namaFile = 'Laporan_Jasa_' . ($jenis ? ucfirst(strtolower($jenis)) . '_' : 'Semua_Jenis_') . $namaPeriode . '.xlsx';
+
+        return Excel::download(new JasaPegawaiExport($data, $jenis), $namaFile);
     }
 }
