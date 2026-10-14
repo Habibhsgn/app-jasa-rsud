@@ -44,6 +44,9 @@ class PerRuanganSheet implements FromCollection, WithTitle, WithHeadings, WithMa
     {
         return JasaPegawai::with('pegawai')
             ->where('jasa_ruangan_id', $this->item->id)
+            ->where(function ($w) {
+                $w->whereNotNull('pegawai_id')->orWhere('nominal', '>', 0);
+            })
             ->orderBy('id')
             ->get();
     }

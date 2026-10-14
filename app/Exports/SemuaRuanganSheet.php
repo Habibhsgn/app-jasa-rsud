@@ -37,6 +37,9 @@ class SemuaRuanganSheet implements FromCollection, WithTitle, WithHeadings, With
     {
         return JasaPegawai::with(['pegawai', 'jasaRuangan.ruangan', 'jasaRuangan.periode'])
             ->whereIn('jasa_ruangan_id', $this->data->pluck('id'))
+            ->where(function ($w) {
+                $w->whereNotNull('pegawai_id')->orWhere('nominal', '>', 0);
+            })
             ->orderBy('jasa_ruangan_id')
             ->orderBy('id')
             ->get();
@@ -54,7 +57,7 @@ class SemuaRuanganSheet implements FromCollection, WithTitle, WithHeadings, With
 
         return [
             $this->rowNumber,
-            ($jp->pegawai?->nama ?? '(Pegawai dihapus)') . ' (' . $ruangan . ')',
+            ($jp->pegawai?->nama ?? '(Pegawai dihapus)'),
             $jp->pegawai?->jabatan ?? '-',
             $jp->jasaRuangan?->periode?->keterangan ?? '-',
             $jp->nominal,

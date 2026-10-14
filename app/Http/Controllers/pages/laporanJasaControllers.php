@@ -12,56 +12,97 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class laporanJasaControllers extends Controller
 {
-    private function buildQuery(Request $request)
+    /**
+     * Tentukan jenis yang tersedia di bulan terpilih dan jenis yang dipakai.
+     * return [$periode, $tersedia, $jenis]
+     */
+    private function resolveFilter(Request $request): array
     {
-        $query = JasaRuangan::with(['periode', 'ruangan', 'jasaPegawai.pegawai.ruangan'])
-            ->where('status', 'selesai');
+        $periode  = $request->input('periode');
+        $tersedia = collect();
+        $jenis    = null;
 
-        // Filter bulan, contoh "2026-01"
-        if ($request->filled('periode')) {
-            $query->whereHas('periode', fn($q) => $q->where('periode', $request->periode));
+        if ($periode) {
+            $tersedia = JasaRuangan::with('periode')
+                ->where('status', 'selesai')
+                ->whereHas('periode', fn($q) => $q->where('periode', $periode))
+                ->get()
+                ->map(fn($jr) => strtoupper($jr->periode?->keterangan ?: 'REGULER'))
+                ->unique()
+                ->values();
+
+            if ($tersedia->count() === 1) {
+                $jenis = $tersedia->first();                       // otomatis
+            } elseif ($tersedia->count() > 1) {
+                $pilihan = strtoupper((string) $request->input('jenis'));
+                $jenis   = $tersedia->contains($pilihan) ? $pilihan : null; // harus dipilih
+            }
         }
 
-        // Filter jenis: REGULER / PENDING
-        if ($request->filled('jenis')) {
-            $query->whereHas('periode', fn($q) => $q->where('keterangan', strtoupper($request->jenis)));
-        }
+        return [$periode, $tersedia, $jenis];
+    }
 
-        return $query->orderBy('periode_id')->orderBy('ruangan_id');
+    private function buildQuery(string $periode, string $jenis)
+    {
+        return JasaRuangan::with([
+            'periode',
+            'ruangan',
+            // sembunyikan baris kosong tanpa pegawai
+            'jasaPegawai' => fn($q) => $q->where(function ($w) {
+                $w->whereNotNull('pegawai_id')->orWhere('nominal', '>', 0);
+            }),
+            'jasaPegawai.pegawai.ruangan',
+        ])
+            ->where('status', 'selesai')
+            ->whereHas('periode', function ($q) use ($periode, $jenis) {
+                $q->where('periode', $periode)->where('keterangan', $jenis);
+            })
+            ->orderBy('ruangan_id');
     }
 
     public function index(Request $request)
     {
-        $data = $this->buildQuery($request)->get();
+        [$periodeDipilih, $tersedia, $jenis] = $this->resolveFilter($request);
 
-        $periode = PeriodeJasa::select('periode')
-            ->distinct()
+        $data = ($periodeDipilih && $jenis)
+            ? $this->buildQuery($periodeDipilih, $jenis)->get()
+            : collect();
+
+        // Dropdown bulan: hanya bulan yang punya data selesai
+        $periodeIds = JasaRuangan::where('status', 'selesai')->distinct()->pluck('periode_id');
+        $periode = PeriodeJasa::whereIn('id', $periodeIds)
             ->orderBy('periode', 'desc')
-            ->pluck('periode');
+            ->pluck('periode')
+            ->unique()
+            ->values();
 
-        return view('pages.laporanJasa', compact('data', 'periode'));
+        return view('pages.laporanJasa', compact(
+            'data',
+            'periode',
+            'periodeDipilih',
+            'tersedia',
+            'jenis'
+        ));
     }
 
     public function exportExcel(Request $request)
     {
-        $data = $this->buildQuery($request)->get();
+        [$periodeDipilih, $tersedia, $jenis] = $this->resolveFilter($request);
+
+        if (!$periodeDipilih || !$jenis) {
+            return redirect()
+                ->route('laporan.jasa.index', $request->only('periode', 'jenis'))
+                ->with('error', 'Pilih periode (dan jenis) terlebih dahulu sebelum download.');
+        }
+
+        $data = $this->buildQuery($periodeDipilih, $jenis)->get();
 
         if ($data->isEmpty()) {
             return back()->with('error', 'Tidak ada data untuk diexport.');
         }
 
-        $jenis = $request->filled('jenis') ? strtoupper($request->jenis) : null;
-
-        $namaPeriode = 'Semua_Periode';
-        if ($request->filled('periode')) {
-            $namaPeriode = str_replace(
-                ' ',
-                '_',
-                Carbon::parse($request->periode . '-01')->translatedFormat('F_Y')
-            );
-        }
-
-        $namaFile = 'Laporan_Jasa_' . ($jenis ? ucfirst(strtolower($jenis)) . '_' : 'Semua_Jenis_') . $namaPeriode . '.xlsx';
+        $bulan = Carbon::parse($periodeDipilih . '-01')->translatedFormat('F_Y');
+        $namaFile = 'Laporan_Jasa_' . ucfirst(strtolower($jenis)) . '_' . $bulan . '.xlsx';
 
         return Excel::download(new JasaPegawaiExport($data, $jenis), $namaFile);
     }

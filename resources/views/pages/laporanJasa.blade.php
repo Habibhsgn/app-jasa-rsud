@@ -11,38 +11,62 @@
 
             <div class="d-flex gap-2">
 
-                <form method="GET" action="{{ route('laporan.jasa.index') }}" class="d-flex gap-2">
-                    <select name="periode" class="form-select">
-                        <option value="">Semua Periode</option>
+                <form method="GET" action="{{ route('laporan.jasa.index') }}" class="d-flex gap-2 align-items-center">
+                    {{-- Ganti bulan => otomatis reload agar pilihan jenis menyesuaikan --}}
+                    <select name="periode" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- Pilih Periode --</option>
                         @foreach ($periode as $p)
-                            <option value="{{ $p }}" {{ request('periode') == $p ? 'selected' : '' }}>
+                            <option value="{{ $p }}" {{ $periodeDipilih == $p ? 'selected' : '' }}>
                                 {{ \Carbon\Carbon::parse($p . '-01')->translatedFormat('F Y') }}
                             </option>
                         @endforeach
                     </select>
 
-                    <select name="jenis" class="form-select">
-                        <option value="">Semua Jenis</option>
-                        <option value="REGULER" {{ request('jenis') == 'REGULER' ? 'selected' : '' }}>Reguler (30%)</option>
-                        <option value="PENDING" {{ request('jenis') == 'PENDING' ? 'selected' : '' }}>Pending</option>
-                    </select>
+                    @if ($periodeDipilih && $tersedia->count() > 1)
+                        {{-- Muncul hanya jika bulan ini punya REGULER dan PENDING --}}
+                        <select name="jenis" class="form-select" onchange="this.form.submit()">
+                            <option value="">-- Pilih Jenis --</option>
+                            @foreach ($tersedia as $j)
+                                <option value="{{ $j }}" {{ $jenis == $j ? 'selected' : '' }}>
+                                    {{ $j === 'PENDING' ? 'Pending' : 'Reguler' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @elseif ($periodeDipilih && $tersedia->count() === 1)
+                        <span class="badge {{ $jenis === 'PENDING' ? 'bg-warning text-dark' : 'bg-success' }} fs-6">
+                            {{ $jenis === 'PENDING' ? 'Pending' : 'Reguler' }}
+                        </span>
+                    @endif
 
                     <button type="submit" class="btn btn-primary">Filter</button>
                 </form>
 
-                <a href="{{ route('laporan.jasa.export', ['periode' => request('periode'), 'jenis' => request('jenis')]) }}"
-                    class="btn btn-success">
-                    📗 Download Excel
-                </a>
-                <button onclick="window.print()" class="btn btn-secondary">
-                    🖨️ Cetak Laporan
-                </button>
+                @if ($data->isNotEmpty())
+                    <a href="{{ route('laporan.jasa.export', ['periode' => $periodeDipilih, 'jenis' => $jenis]) }}"
+                        class="btn btn-success">
+                        📗 Download Excel
+                    </a>
+                    <button onclick="window.print()" class="btn btn-secondary">
+                        🖨️ Cetak Laporan
+                    </button>
+                @endif
 
             </div>
         </div>
 
-        @if ($data->isEmpty())
-            <div class="alert alert-info">Belum ada data pembagian jasa yang disubmit (selesai).</div>
+        @if (session('error'))
+            <div class="alert alert-danger">{{ session('error') }}</div>
+        @endif
+
+        {{-- Pesan sesuai kondisi filter --}}
+        @if (!$periodeDipilih)
+            <div class="alert alert-info">Silakan pilih periode terlebih dahulu untuk menampilkan laporan.</div>
+        @elseif ($tersedia->count() > 1 && !$jenis)
+            <div class="alert alert-info">
+                Bulan ini memiliki jasa Reguler dan Pending. Silakan pilih jenis laporan.
+            </div>
+        @elseif ($data->isEmpty())
+            <div class="alert alert-warning">Belum ada data pembagian jasa yang disubmit (selesai) untuk filter ini.</div>
         @endif
 
         @foreach ($data as $item)
@@ -83,24 +107,22 @@
                                 @foreach ($item->jasaPegawai as $index => $jp)
                                     @php
                                         $p = $jp->pegawai;
-                                        $persen = $jp->persen;
-                                        $nominal = $jp->nominal;
-                                        $totalPersen += $persen;
-                                        $totalNominal += $nominal;
+                                        $totalPersen += $jp->persen;
+                                        $totalNominal += $jp->nominal;
                                         $sudahPindah = $p && $p->ruangan_id != $item->ruangan_id;
                                     @endphp
                                     <tr>
-                                        <td class="text-center">{{ $index + 1 }}</td>
+                                        <td class="text-center">{{ $loop->iteration }}</td>
                                         <td>
-                                            {{ $p?->nama ?? '(Pegawai dihapus)' }}
+                                            {{ $p?->nama ?? '(Pegawai tidak ditemukan)' }}
                                             @if ($sudahPindah)
                                                 <br><span class="badge bg-warning text-dark">Sekarang di
                                                     {{ $p->ruangan->nama_ruangan ?? '-' }}</span>
                                             @endif
                                         </td>
                                         <td>{{ $p?->jabatan ?? '-' }}</td>
-                                        <td>{{ (float) $persen }}%</td>
-                                        <td>Rp {{ number_format($nominal, 0, ',', '.') }}</td>
+                                        <td>{{ (float) $jp->persen }}%</td>
+                                        <td>Rp {{ number_format($jp->nominal, 0, ',', '.') }}</td>
                                         <td>{{ $jp->keterangan ?: '-' }}</td>
                                     </tr>
                                 @endforeach
@@ -121,7 +143,6 @@
     </div>
 
     <style>
-        /* Styling sederhana agar rapi saat dicetak / print */
         @media print {
             body * {
                 visibility: hidden;
@@ -139,7 +160,9 @@
                 width: 100%;
             }
 
-            .btn {
+            .btn,
+            form,
+            .alert {
                 display: none !important;
             }
 
