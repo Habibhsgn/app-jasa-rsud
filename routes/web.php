@@ -138,11 +138,6 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
 
         Route::get('/master-ruangan/{id}/toggle-status', [masterRuanganControllers::class, 'toggleStatus'])
             ->name('master.ruangan.toggleStatus');
-
-        Route::post('/master-ruangan/{id}/penerima/aktifkan', [masterRuanganControllers::class, 'aktifkanPenerima'])
-            ->name('master.ruangan.penerima.aktifkan');
-        Route::post('/master-ruangan/{id}/penerima/nonaktifkan', [masterRuanganControllers::class, 'nonaktifkanPenerima'])
-            ->name('master.ruangan.penerima.nonaktifkan');
     });
 
     /*
@@ -287,6 +282,7 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
         Route::get('/', [InacbgController::class, 'index'])->name('index');
         Route::post('/import', [InacbgController::class, 'import'])->name('import');
         Route::get('/export', [InacbgController::class, 'export'])->name('export');
+        Route::put('/{inacbgClaim}/keterangan/{section}', [InacbgController::class, 'updateKeterangan'])->name('update-keterangan');
         Route::get('/{inacbgClaim}', [InacbgController::class, 'show'])->name('show');
         Route::put('/{inacbgClaim}/status', [InacbgController::class, 'updateStatus'])->name('update-status');
     });

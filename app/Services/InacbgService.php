@@ -13,64 +13,64 @@ class InacbgService
      * Column mapping from inacbg.xlsx header → database column
      */
     protected array $inacbgMapping = [
-        'KELAS_RS'            => 'kelas_rs',
-        'KELAS_RAWAT'         => 'kelas_rawat',
-        'KODE_TARIF'          => 'kode_tarif',
-        'ADMISSION_DATE'      => 'admission_date',
-        'DISCHARGE_DATE'      => 'discharge_date',
-        'BIRTH_DATE'          => 'birth_date',
-        'SEX'                 => 'sex',
-        'DISCHARGE_STATUS'    => 'discharge_status',
-        'DIAGLIST'            => 'diaglist',
-        'PROCLIST'            => 'proclist',
-        'INACBG'              => 'inacbg',
-        'SUBACUTE'            => 'subacute',
-        'CHRONIC'             => 'chronic',
-        'DESKRIPSI_INACBG'    => 'deskripsi_inacbg',
-        'TARIF_INACBG'        => 'tarif_inacbg',
-        'TARIF_SUBACUTE'      => 'tarif_subacute',
-        'TARIF_CHRONIC'       => 'tarif_chronic',
-        'TARIF_SP'            => 'tarif_sp',
-        'TARIF_SR'            => 'tarif_sr',
-        'TARIF_SI'            => 'tarif_si',
-        'TARIF_SD'            => 'tarif_sd',
-        'TOTAL_TARIF'         => 'total_tarif',
-        'TARIF_RS'            => 'tarif_rs',
-        'LOS'                 => 'los',
-        'NAMA_PASIEN'         => 'nama_pasien',
-        'MRN'                 => 'mrn',
-        'UMUR_TAHUN'          => 'umur_tahun',
-        'UMUR_HARI'           => 'umur_hari',
-        'DPJP'                => 'dpjp',
-        'SEP'                 => 'sep',
-        'PAYOR_ID'            => 'payor_id',
-        'VERSI_INACBG'        => 'versi_inacbg',
-        'VERSI_GROUPER'       => 'versi_grouper',
-        'PROSEDUR_NON_BEDAH'  => 'prosedur_non_bedah',
-        'PROSEDUR_BEDAH'      => 'prosedur_bedah',
-        'KONSULTASI'          => 'konsultasi',
-        'TENAGA_AHLI'         => 'tenaga_ahli',
-        'KEPERAWATAN'         => 'keperawatan',
-        'PENUNJANG'           => 'penunjang',
-        'RADIOLOGI'           => 'radiologi',
-        'LABORATORIUM'        => 'laboratorium',
-        'PELAYANAN_DARAH'     => 'pelayanan_darah',
-        'REHABILITASI'        => 'rehabilitasi',
-        'KAMAR_AKOMODASI'     => 'kamar_akomodasi',
-        'RAWAT_INTENSIF'      => 'rawat_intensif',
-        'OBAT'                => 'obat',
-        'ALKES'               => 'alkes',
-        'BMHP'                => 'bmhp',
-        'SEWA_ALAT'           => 'sewa_alat',
-        'OBAT_KRONIS'         => 'obat_kronis',
-        'OBAT_KEMO'           => 'obat_kemo',
-        'IDRG_MDC_NUMBER'     => 'idrg_mdc_number',
+        'KELAS_RS' => 'kelas_rs',
+        'KELAS_RAWAT' => 'kelas_rawat',
+        'KODE_TARIF' => 'kode_tarif',
+        'ADMISSION_DATE' => 'admission_date',
+        'DISCHARGE_DATE' => 'discharge_date',
+        'BIRTH_DATE' => 'birth_date',
+        'SEX' => 'sex',
+        'DISCHARGE_STATUS' => 'discharge_status',
+        'DIAGLIST' => 'diaglist',
+        'PROCLIST' => 'proclist',
+        'INACBG' => 'inacbg',
+        'SUBACUTE' => 'subacute',
+        'CHRONIC' => 'chronic',
+        'DESKRIPSI_INACBG' => 'deskripsi_inacbg',
+        'TARIF_INACBG' => 'tarif_inacbg',
+        'TARIF_SUBACUTE' => 'tarif_subacute',
+        'TARIF_CHRONIC' => 'tarif_chronic',
+        'TARIF_SP' => 'tarif_sp',
+        'TARIF_SR' => 'tarif_sr',
+        'TARIF_SI' => 'tarif_si',
+        'TARIF_SD' => 'tarif_sd',
+        'TOTAL_TARIF' => 'total_tarif',
+        'TARIF_RS' => 'tarif_rs',
+        'LOS' => 'los',
+        'NAMA_PASIEN' => 'nama_pasien',
+        'MRN' => 'mrn',
+        'UMUR_TAHUN' => 'umur_tahun',
+        'UMUR_HARI' => 'umur_hari',
+        'DPJP' => 'dpjp',
+        'SEP' => 'sep',
+        'PAYOR_ID' => 'payor_id',
+        'VERSI_INACBG' => 'versi_inacbg',
+        'VERSI_GROUPER' => 'versi_grouper',
+        'PROSEDUR_NON_BEDAH' => 'prosedur_non_bedah',
+        'PROSEDUR_BEDAH' => 'prosedur_bedah',
+        'KONSULTASI' => 'konsultasi',
+        'TENAGA_AHLI' => 'tenaga_ahli',
+        'KEPERAWATAN' => 'keperawatan',
+        'PENUNJANG' => 'penunjang',
+        'RADIOLOGI' => 'radiologi',
+        'LABORATORIUM' => 'laboratorium',
+        'PELAYANAN_DARAH' => 'pelayanan_darah',
+        'REHABILITASI' => 'rehabilitasi',
+        'KAMAR_AKOMODASI' => 'kamar_akomodasi',
+        'RAWAT_INTENSIF' => 'rawat_intensif',
+        'OBAT' => 'obat',
+        'ALKES' => 'alkes',
+        'BMHP' => 'bmhp',
+        'SEWA_ALAT' => 'sewa_alat',
+        'OBAT_KRONIS' => 'obat_kronis',
+        'OBAT_KEMO' => 'obat_kemo',
+        'IDRG_MDC_NUMBER' => 'idrg_mdc_number',
         'IDRG_MDC_DESCRIPTION' => 'idrg_mdc_description',
-        'IDRG_DRG_CODE'       => 'idrg_drg_code',
+        'IDRG_DRG_CODE' => 'idrg_drg_code',
         'IDRG_DRG_DESCRIPTION' => 'idrg_drg_description',
-        'IDRG_COST_WEIGHT'    => 'idrg_cost_weight',
+        'IDRG_COST_WEIGHT' => 'idrg_cost_weight',
         'IDRG_TOTAL_COST_WEIGHT' => 'idrg_total_cost_weight',
-        'IDRG_TOTAL_TARIF'    => 'idrg_total_tarif',
+        'IDRG_TOTAL_TARIF' => 'idrg_total_tarif',
     ];
 
     /**
@@ -205,13 +205,30 @@ class InacbgService
                     $value = $value !== null && $value !== '' ? (int) $value : null;
                 }
 
-                if (str_contains($dbCol, 'tarif') || str_contains($dbCol, 'biaya') || in_array($dbCol, [
-                    'prosedur_non_bedah', 'prosedur_bedah', 'konsultasi', 'tenaga_ahli',
-                    'keperawatan', 'penunjang', 'radiologi', 'laboratorium', 'pelayanan_darah',
-                    'rehabilitasi', 'kamar_akomodasi', 'rawat_intensif', 'obat', 'alkes',
-                    'bmhp', 'sewa_alat', 'obat_kronis', 'obat_kemo',
-                    'idrg_cost_weight', 'idrg_total_cost_weight',
-                ])) {
+                if (
+                    str_contains($dbCol, 'tarif') || str_contains($dbCol, 'biaya') || in_array($dbCol, [
+                        'prosedur_non_bedah',
+                        'prosedur_bedah',
+                        'konsultasi',
+                        'tenaga_ahli',
+                        'keperawatan',
+                        'penunjang',
+                        'radiologi',
+                        'laboratorium',
+                        'pelayanan_darah',
+                        'rehabilitasi',
+                        'kamar_akomodasi',
+                        'rawat_intensif',
+                        'obat',
+                        'alkes',
+                        'bmhp',
+                        'sewa_alat',
+                        'obat_kronis',
+                        'obat_kemo',
+                        'idrg_cost_weight',
+                        'idrg_total_cost_weight',
+                    ])
+                ) {
                     $value = $value !== null && $value !== '' ? (float) $value : 0;
                 }
 
@@ -285,19 +302,29 @@ class InacbgService
 
             foreach ($headerRow as $i => $h) {
                 $h = strtolower(trim((string) $h));
-                if (in_array($h, ['no.sep', 'no.sép', 'nosep'])) $colIdx['sep'] = $i;
-                elseif (str_contains($h, 'tgl') || str_contains($h, 'tanggal')) $colIdx['tgl_verifikasi'] = $i;
-                elseif (str_contains($h, 'riil')) $colIdx['biaya_riil_rs'] = $i;
-                elseif (str_contains($h, 'diajukan')) $colIdx['biaya_diajukan'] = $i;
-                elseif (str_contains($h, 'disetujui')) $colIdx['biaya_disetujui'] = $i;
+                if (in_array($h, ['no.sep', 'no.sép', 'nosep']))
+                    $colIdx['sep'] = $i;
+                elseif (str_contains($h, 'tgl') || str_contains($h, 'tanggal'))
+                    $colIdx['tgl_verifikasi'] = $i;
+                elseif (str_contains($h, 'riil'))
+                    $colIdx['biaya_riil_rs'] = $i;
+                elseif (str_contains($h, 'diajukan'))
+                    $colIdx['biaya_diajukan'] = $i;
+                elseif (str_contains($h, 'disetujui'))
+                    $colIdx['biaya_disetujui'] = $i;
             }
 
             // Fallback by position if header matching failed
-            if ($colIdx['sep'] === null) $colIdx['sep'] = 1;
-            if ($colIdx['tgl_verifikasi'] === null) $colIdx['tgl_verifikasi'] = 2;
-            if ($colIdx['biaya_riil_rs'] === null) $colIdx['biaya_riil_rs'] = 3;
-            if ($colIdx['biaya_diajukan'] === null) $colIdx['biaya_diajukan'] = 4;
-            if ($colIdx['biaya_disetujui'] === null) $colIdx['biaya_disetujui'] = 5;
+            if ($colIdx['sep'] === null)
+                $colIdx['sep'] = 1;
+            if ($colIdx['tgl_verifikasi'] === null)
+                $colIdx['tgl_verifikasi'] = 2;
+            if ($colIdx['biaya_riil_rs'] === null)
+                $colIdx['biaya_riil_rs'] = 3;
+            if ($colIdx['biaya_diajukan'] === null)
+                $colIdx['biaya_diajukan'] = 4;
+            if ($colIdx['biaya_disetujui'] === null)
+                $colIdx['biaya_disetujui'] = 5;
 
             // Iterate rows (skip header)
             for ($r = 2; $r <= $highestRow; $r++) {
@@ -322,6 +349,24 @@ class InacbgService
         $spreadsheet->disconnectWorksheets();
         unset($spreadsheet);
 
+        // $seps = array_column($results, 'sep');
+
+        // $data = InacbgClaim::query()
+        //     ->whereIn('sep', $seps)
+        //     ->where('status', 'disetujui')
+        //     ->get();
+
+        // $sepAdaDiDb = $data->pluck('sep')->toArray();
+
+        // $sepTidakAda = array_values(array_diff($seps, $sepAdaDiDb));
+
+        // dd([
+        //     'total_excel' => count($seps),
+        //     'total_db' => count($sepAdaDiDb),
+        //     'tidak_masuk' => count($sepTidakAda),
+        //     'sep' => $sepTidakAda,
+        // ]);
+        
         return $results;
     }
 

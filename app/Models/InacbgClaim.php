@@ -52,6 +52,19 @@ class InacbgClaim extends Model
         'jenis_rawat',
         'tgl_verifikasi', 'biaya_riil_rs', 'biaya_diajukan',
         'biaya_disetujui', 'status',
+
+        // Keterangan per seksi (JSON)
+        'keterangan',
+    ];
+
+    /**
+     * Seksi keterangan. key = kode seksi (dipakai di permission & URL),
+     * column = kolom biaya yang menentukan apakah SEP masuk tab seksi tsb.
+     */
+    public const SECTIONS = [
+        'lab'       => ['label' => 'Laboratorium', 'short' => 'Lab', 'column' => 'laboratorium',   'color' => 'success', 'icon' => 'clipboard'],
+        'radiologi' => ['label' => 'Radiologi',    'short' => 'Rad', 'column' => 'radiologi',      'color' => 'primary', 'icon' => 'aperture'],
+        'utd'       => ['label' => 'UTD',          'short' => 'UTD', 'column' => 'pelayanan_darah', 'color' => 'danger', 'icon' => 'droplet'],
     ];
 
     protected function casts(): array
@@ -73,12 +86,20 @@ class InacbgClaim extends Model
             'biaya_riil_rs' => 'decimal:2',
             'biaya_diajukan' => 'decimal:2',
             'biaya_disetujui' => 'decimal:2',
+            'keterangan' => 'array',
         ];
     }
 
     public function scopePending($query)
     {
         return $query->where('status', 'pending');
+    }
+
+    public function scopeForSection($query, string $section)
+    {
+        $col = self::SECTIONS[$section]['column'] ?? null;
+
+        return $col ? $query->where($col, '>', 0) : $query;
     }
 
     public function scopeDisetujui($query)
