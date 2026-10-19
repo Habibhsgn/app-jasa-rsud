@@ -42,6 +42,24 @@ class IndexScoringControllers extends Controller
     }
 
     /**
+     * Pegawai masih berhak dinilai di periode ini jika belum dihapus (deleted_at NULL),
+     * atau tanggal nonaktifnya (deleted_at) SETELAH awal periode.
+     *
+     * deleted_at = hari pertama pegawai nonaktif. Jadi:
+     *  - deleted_at 15 Okt  => masih tampil di periode Okt (1 Okt < 15 Okt), tidak di Nov.
+     *  - deleted_at  1 Okt  => tidak tampil di periode Okt (1 Okt tidak > 1 Okt).
+     *
+     * Dipakai pada query DB::table('pegawai') yang tidak mengenal SoftDeletes.
+     */
+    private function aktifPadaPeriode($query, Carbon $periode)
+    {
+        return $query->where(function ($q) use ($periode) {
+            $q->whereNull('deleted_at')
+                ->orWhere('deleted_at', '>', $periode);
+        });
+    }
+
+    /**
      * Ruangan yang boleh dipilih user ini di dropdown.
      * Admin: semua ruangan aktif. Non-admin: hanya ruangan miliknya.
      */
@@ -257,6 +275,10 @@ class IndexScoringControllers extends Controller
      * Pegawai yang pada periode ini SUDAH punya record di ruangan lain
      * (mis. pindah ruangan setelah ruangan lama mengajukan) tidak dijadikan
      * input, melainkan dikumpulkan di 'pegawai_ruangan_lain' untuk info.
+     *
+     * Pegawai yang sudah dinonaktifkan (soft delete) hanya tampil jika tanggal
+     * nonaktifnya SETELAH awal periode, atau jika sudah punya record tersimpan
+     * di periode ini (snapshot).
      */
     private function buildPeriodeData(Carbon $periode, array $ruanganIds, bool $withTopLeader = false): object
     {
@@ -283,15 +305,19 @@ class IndexScoringControllers extends Controller
             ? DB::table('ruangan')->whereIn('id', $ruanganIds)->where('is_active', 1)->orderBy('nama_ruangan')->get()
             : collect();
 
-        // Pegawai: ruangan yang dirender + pegawai yang sudah tersimpan di ruangan tsb
-        // (supaya pegawai yang sudah pindah tetap tampil di snapshot terkunci).
+        // Pegawai: pegawai yang masih berhak di periode ini milik ruangan yang dirender
+        // + pegawai yang sudah tersimpan di scoring (supaya snapshot tetap utuh, termasuk
+        // yang sudah pindah / sudah dinonaktifkan setelahnya).
         $pegawaiMasterById = collect();
         if ($ruangans->isNotEmpty()) {
             $pegawaiIdsTersimpan = $scoring->pluck('pegawai_id')->filter()->values();
 
             $pegawaiMasterById = DB::table('pegawai')
-                ->where(function ($q) use ($ruangans, $pegawaiIdsTersimpan) {
-                    $q->whereIn('ruangan_id', $ruangans->pluck('id'))
+                ->where(function ($q) use ($ruangans, $pegawaiIdsTersimpan, $periode) {
+                    $q->where(function ($q2) use ($ruangans, $periode) {
+                        $q2->whereIn('ruangan_id', $ruangans->pluck('id'));
+                        $this->aktifPadaPeriode($q2, $periode);
+                    })
                         ->orWhereIn('id', $pegawaiIdsTersimpan);
                 })
                 ->orderBy('nama')
@@ -305,16 +331,16 @@ class IndexScoringControllers extends Controller
         $scoringPegawaiPeriode = $pegawaiMasterById->isEmpty()
             ? collect()
             : IndexScoring::where('periode_pengajuan', $periode)
-                ->where('source_type', 'pegawai')
-                ->whereIn('source_id', $pegawaiMasterById->keys())
-                ->get(['source_id', 'ruangan_id', 'status_pengajuan'])
-                ->keyBy('source_id');
+            ->where('source_type', 'pegawai')
+            ->whereIn('source_id', $pegawaiMasterById->keys())
+            ->get(['source_id', 'ruangan_id', 'status_pengajuan'])
+            ->keyBy('source_id');
 
         $namaRuanganById = $scoringPegawaiPeriode->isEmpty()
             ? collect()
             : DB::table('ruangan')
-                ->whereIn('id', $scoringPegawaiPeriode->pluck('ruangan_id')->filter()->unique())
-                ->pluck('nama_ruangan', 'id');
+            ->whereIn('id', $scoringPegawaiPeriode->pluck('ruangan_id')->filter()->unique())
+            ->pluck('nama_ruangan', 'id');
 
         // ---------- Regular pegawai per ruangan ----------
         $ruanganData = $ruangans->map(function ($ruangan) use (
@@ -533,9 +559,10 @@ class IndexScoringControllers extends Controller
      * Non-admin:
      *  - hanya boleh source_type 'pegawai'
      *  - ruangan dipaksa = ruangan miliknya
-     *  - semua pegawai yang dikirim harus milik ruangannya
+     *  - semua pegawai yang dikirim harus milik ruangannya dan masih berhak
+     *    di periode ini (belum nonaktif, atau sudah punya record di periode ini)
      */
-    private function authorizeRows(Request $request): void
+    private function authorizeRows(Request $request, Carbon $periode): void
     {
         $user = Auth::user();
 
@@ -558,9 +585,19 @@ class IndexScoringControllers extends Controller
             ->unique()
             ->values();
 
+        // Pegawai yang sudah punya record di periode ini tetap boleh (data lama / snapshot)
+        $idsSudahAdaRecord = IndexScoring::where('periode_pengajuan', $periode)
+            ->where('source_type', 'pegawai')
+            ->whereIn('source_id', $ids)
+            ->pluck('source_id');
+
         $valid = DB::table('pegawai')
             ->whereIn('id', $ids)
             ->where('ruangan_id', $user->ruangan_id)
+            ->where(function ($q) use ($periode, $idsSudahAdaRecord) {
+                $this->aktifPadaPeriode($q, $periode);
+                $q->orWhereIn('id', $idsSudahAdaRecord);
+            })
             ->count();
 
         abort_unless($valid === $ids->count(), 403);
@@ -593,7 +630,7 @@ class IndexScoringControllers extends Controller
      *
      * @return array{rows: array, skipped: array, lockedLabel: ?string}
      *   rows        : baris yang boleh disimpan (+ sourceType, sourceId, ruanganId)
-     *   skipped     : nama pegawai yang dilewati karena milik ruangan lain
+     *   skipped     : nama pegawai yang dilewati (milik ruangan lain / sudah nonaktif)
      *   lockedLabel : terisi jika ada baris milik target ini yang terkunci
      */
     private function classifyRows(Request $request, Carbon $periode): array
@@ -601,6 +638,25 @@ class IndexScoringControllers extends Controller
         $existing = IndexScoring::where('periode_pengajuan', $periode)
             ->get(['source_type', 'source_id', 'ruangan_id', 'status_pengajuan'])
             ->keyBy(fn($r) => $r->source_type . '_' . $r->source_id);
+
+        // Pegawai yang sudah nonaktif pada/sebelum awal periode ini (tidak berhak dinilai).
+        $kandidatIds = collect($request->pegawai)
+            ->filter(fn($r) => ($r['source_type'] ?? 'pegawai') === 'pegawai')
+            ->map(fn($r) => $r['source_id'] ?? $r['pegawai_id'] ?? null)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $tidakBerhakIds = empty($kandidatIds)
+            ? []
+            : DB::table('pegawai')
+            ->whereNotNull('deleted_at')
+            ->where('deleted_at', '<=', $periode)
+            ->whereIn('id', $kandidatIds)
+            ->pluck('id')
+            ->map(fn($id) => (int) $id)
+            ->all();
 
         $rows = [];
         $skipped = [];
@@ -612,6 +668,17 @@ class IndexScoringControllers extends Controller
             $ruanganId = $this->resolveRuanganId($request, $pegawai, $sourceType);
 
             $rec = $existing->get($sourceType . '_' . $sourceId);
+
+            // Pegawai sudah nonaktif sebelum periode ini: jangan buat record baru.
+            // (Kalau record-nya sudah ada, data lama tetap boleh diperbarui.)
+            if (
+                $sourceType === 'pegawai'
+                && !$rec
+                && in_array((int) $sourceId, $tidakBerhakIds, true)
+            ) {
+                $skipped[] = ($pegawai['nama'] ?? "ID $sourceId") . ' (sudah nonaktif)';
+                continue;
+            }
 
             if ($rec) {
                 // Sudah dinilai ruangan lain (status apa pun): jangan diambil alih
@@ -640,7 +707,7 @@ class IndexScoringControllers extends Controller
     /**
      * Simpan draft / submit. Key updateOrCreate menyertakan periode supaya
      * data lintas bulan tidak saling menimpa. Pegawai yang periode ini sudah
-     * tercatat di ruangan lain dilewati, bukan ditimpa.
+     * tercatat di ruangan lain, atau sudah nonaktif, dilewati bukan ditimpa.
      */
     private function save(Request $request, string $status)
     {
@@ -650,9 +717,9 @@ class IndexScoringControllers extends Controller
             'pegawai' => ['required', 'array'],
         ]);
 
-        $this->authorizeRows($request);
-
         $periode = $this->parsePeriode($request->periode);
+
+        $this->authorizeRows($request, $periode);
 
         // ---- Klasifikasi & lock check (sebelum transaksi) ----
         ['rows' => $rows, 'skipped' => $skipped, 'lockedLabel' => $lockedLabel] = $this->classifyRows($request, $periode);
@@ -664,7 +731,7 @@ class IndexScoringControllers extends Controller
 
         if (empty($rows)) {
             return $this->redirectToForm($request, $periode)
-                ->with('error', 'Tidak ada data yang bisa disimpan. Semua pegawai sudah dinilai oleh ruangan lain untuk periode ini.');
+                ->with('error', 'Tidak ada data yang bisa disimpan. Semua pegawai sudah dinilai oleh ruangan lain atau sudah nonaktif untuk periode ini.');
         }
 
         // ---- Simpan ----
@@ -712,7 +779,7 @@ class IndexScoringControllers extends Controller
         $msg = $status === 'draft' ? 'Draft berhasil disimpan.' : 'Pengajuan berhasil dikirim.';
 
         if (!empty($skipped)) {
-            $msg .= ' Dilewati karena sudah dinilai oleh ruangan lain: ' . implode(', ', $skipped) . '.';
+            $msg .= ' Dilewati: ' . implode(', ', $skipped) . '.';
         }
 
         return $this->redirectToForm($request, $periode)->with('success', $msg);
@@ -728,7 +795,8 @@ class IndexScoringControllers extends Controller
 
     /**
      * Submit final: semua baris wajib terisi lengkap (Jabatan & Pendidikan Formal).
-     * Baris yang terkunci atau milik ruangan lain tidak divalidasi (save() yang menanganinya).
+     * Baris yang terkunci, milik ruangan lain, atau sudah nonaktif tidak divalidasi
+     * (save() yang menanganinya).
      */
     public function submit(Request $request)
     {
@@ -738,9 +806,9 @@ class IndexScoringControllers extends Controller
             'pegawai' => ['required', 'array'],
         ]);
 
-        $this->authorizeRows($request);
-
         $periode = $this->parsePeriode($request->periode);
+
+        $this->authorizeRows($request, $periode);
 
         ['rows' => $rows, 'lockedLabel' => $lockedLabel] = $this->classifyRows($request, $periode);
 

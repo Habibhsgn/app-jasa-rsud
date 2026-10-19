@@ -192,7 +192,7 @@
                                     <td>{{ $p->risk }}</td>
                                     <td>{{ $p->emergency }}</td>
                                     <td>Rp
-                                            {{ number_format($p->gaji_pokok  ?? 0, 0, ',', '.') }}</td>
+                                        {{ number_format($p->gaji_pokok ?? 0, 0, ',', '.') }}</td>
 
                                     <td class="text-center">
 
@@ -243,8 +243,9 @@
                                                     class="d-inline">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button type="submit" class="btn btn-danger btn-sm"
-                                                        onclick="return confirm('Yakin ingin menghapus pegawai ini?')">
+                                                    <button type="button" class="btn btn-danger btn-sm"
+                                                        data-bs-toggle="modal" data-bs-target="#modalHapus"
+                                                        onclick="siapkanFormHapus({{ $p->id }}, {{ Js::from($p->nama) }})">
                                                         Hapus
                                                     </button>
                                                 </form>
@@ -413,6 +414,43 @@
             </div>
         </div>
     @endif
+    {{-- MODAL HAPUS / NONAKTIFKAN PEGAWAI --}}
+    @if (auth()->user()->role?->code === 'admin')
+        <div class="modal fade" id="modalHapus" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title fw-bold">Hapus Pegawai</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+
+                    <form id="formHapus" method="POST">
+                        @csrf
+                        @method('DELETE')
+
+                        <div class="modal-body">
+                            <p>Pegawai: <strong id="hapusNamaPegawai"></strong></p>
+
+                            <div class="mb-3">
+                                <label>Tanggal Mulai Nonaktif</label>
+                                <input type="date" name="tanggal_nonaktif" id="inputTanggalNonaktif"
+                                    class="form-control" required>
+                                <small class="text-muted">
+                                    Pegawai masih berhak dinilai pada periode sebelum tanggal ini.
+                                    Mulai tanggal ini dan seterusnya, pegawai tidak muncul lagi di Index Scoring.
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                            <button type="submit" class="btn btn-danger">Hapus Pegawai</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- SCRIPT --}}
     <script>
@@ -473,6 +511,13 @@
                     opt.textContent = opt.textContent.replace(' (ruangan saat ini)', '');
                 }
             });
+        }
+
+        function siapkanFormHapus(id, nama) {
+            document.getElementById('hapusNamaPegawai').innerText = nama;
+            document.getElementById('formHapus').action = `/pegawai/${id}`;
+            // default hari ini, user tinggal ubah bila perlu
+            document.getElementById('inputTanggalNonaktif').value = new Date().toISOString().slice(0, 10);
         }
 
         // FIX: sebelumnya class selector & data-field di sini tidak cocok dengan HTML

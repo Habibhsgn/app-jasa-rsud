@@ -12,6 +12,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Imports\PegawaiImport;
 use Illuminate\Validation\Rule;
 use App\Exports\PegawaiExport;
+use Illuminate\Support\Carbon;
 
 
 class pegawaiControllers extends Controller
@@ -385,14 +386,28 @@ class pegawaiControllers extends Controller
         return back()->with('success', "Pengajuan pindah untuk '{$pegawai->nama}' ditolak. Pegawai tetap di ruangan asal.");
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
         if (in_array(Auth::user()->role?->code, ['karu', 'koordinator_karu'])) {
             abort(403, 'Tidak boleh hapus data pegawai');
         }
 
-        Pegawai::findOrFail($id)->delete();
+        $request->validate([
+            'tanggal_nonaktif' => ['required', 'date'],
+        ], [
+            'tanggal_nonaktif.required' => 'Tanggal mulai nonaktif wajib diisi.',
+            'tanggal_nonaktif.date' => 'Format tanggal tidak valid.',
+        ]);
 
-        return back()->with('success', 'Data pegawai berhasil dihapus.');
+        $pegawai = Pegawai::findOrFail($id);
+        $tanggal = Carbon::parse($request->tanggal_nonaktif)->startOfDay();
+
+        // Isi deleted_at dengan tanggal pilihan user (bukan now())
+        Pegawai::whereKey($pegawai->id)->update(['deleted_at' => $tanggal]);
+
+        return back()->with(
+            'success',
+            "Pegawai '{$pegawai->nama}' dinonaktifkan mulai " . $tanggal->translatedFormat('d F Y') . '.'
+        );
     }
 }
