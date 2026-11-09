@@ -131,10 +131,29 @@ class InacbgService
 
                 // Check if SEP already exists — update instead of insert
                 $existing = $sep !== ''
-                    ? InacbgClaim::where('sep', $sep)->first()
+                    ? InacbgClaim::where('sep', $sep)->lockForUpdate()->first()
                     : null;
 
                 if ($existing) {
+                    // Harga yang dikoreksi pengguna dan riwayatnya tetap dipertahankan.
+                    foreach (InacbgClaim::SECTIONS as $section => $config) {
+                        if (isset($existing->keterangan[$section]['harga_awal'])) {
+                            unset($row[$config['column']]);
+                        }
+                    }
+
+                    // User sudah mengubah dokter utama (tab Raber) -> jangan ditimpa data import
+                    if ($existing->dpjp_asli !== null) {
+                        if (trim((string) ($row['dpjp'] ?? '')) === trim($existing->dpjp_asli)) {
+                            unset($row['dpjp']);
+                        } else {
+                            // DPJP di file berubah -> pakai data baru, reset penanda
+                            $row['dpjp_asli'] = null;
+                            $row['dpjp_diubah_oleh'] = null;
+                            $row['dpjp_diubah_at'] = null;
+                        }
+                    }
+
                     $existing->update($row);
                     $updated++;
                 } else {

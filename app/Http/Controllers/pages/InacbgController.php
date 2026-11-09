@@ -24,10 +24,11 @@ class InacbgController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | Helper hak akses keterangan (RBAC: User::hasPermission)
+    | Helper hak akses (RBAC: User::hasPermission)
     |--------------------------------------------------------------------------
     | inacbg.keterangan.all        -> tab "Semua", lihat semua keterangan, import, ubah status
     | inacbg.keterangan.{section}  -> tab seksi + boleh isi keterangan seksi tsb
+    | inacbg.raber                 -> tab "Raber" + boleh mengubah dokter utama
     */
 
     protected function canViewAll(): bool
@@ -39,6 +40,11 @@ class InacbgController extends Controller
     {
         return isset(InacbgClaim::SECTIONS[$section])
             && auth()->user()->hasPermission("inacbg.keterangan.{$section}");
+    }
+
+    protected function canRaber(): bool
+    {
+        return auth()->user()->hasPermission('inacbg.raber');
     }
 
     /**
@@ -63,11 +69,15 @@ class InacbgController extends Controller
         $allowed = $this->visibleSections();
         $canAll = $this->canViewAll();
 
-        $default = $canAll ? 'semua' : ($allowed[0] ?? null);
+        $default = $canAll ? 'semua' : ($allowed[0] ?? ($this->canRaber() ? 'raber' : null));
         $tab = $request->get('tab', $default);
 
         if ($tab === 'semua' && $canAll) {
             return 'semua';
+        }
+
+        if ($tab === 'raber' && $this->canRaber()) {
+            return 'raber';
         }
 
         if (is_string($tab) && in_array($tab, $allowed, true)) {
@@ -76,6 +86,22 @@ class InacbgController extends Controller
 
         abort(403);
     }
+
+    /**
+     * Respon sukses: JSON untuk request AJAX, redirect back untuk form biasa.
+     */
+    protected function done(Request $request, string $message)
+    {
+        return $request->expectsJson()
+            ? response()->json(['message' => $message])
+            : back()->with('success', $message);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Filter
+    |--------------------------------------------------------------------------
+    */
 
     /**
      * Filter "belum / sudah diisi" untuk tab seksi.
@@ -94,44 +120,47 @@ class InacbgController extends Controller
     }
 
     /**
-     * Angka per tab (mengikuti filter bulan & tahun):
-     * semua, serta total / terisi / belum untuk tiap seksi yang boleh dilihat.
+     * Filter tindakan (khusus tab radiologi): rontgen / usg / belum.
      */
-    protected function tabStats(array $allowed, ?int $bulan, ?int $tahun): array
+    protected function applyTindakanFilter($query, string $tab, ?string $tindakan): void
     {
-        $selects = ['COUNT(*) AS semua'];
-        foreach ($allowed as $key) {
-            $col = InacbgClaim::SECTIONS[$key]['column'];
-            $selects[] = "SUM({$col} > 0) AS {$key}_total";
-            $selects[] = "SUM({$col} > 0 AND JSON_EXTRACT(keterangan, '$.{$key}') IS NOT NULL) AS {$key}_filled";
+        if ($tab !== 'radiologi' || !$tindakan) {
+            return;
         }
 
-        $row = InacbgClaim::query()
-            ->when($bulan, fn($q) => $q->whereMonth('discharge_date', $bulan))
-            ->when($tahun, fn($q) => $q->whereYear('discharge_date', $tahun))
-            ->selectRaw(implode(', ', $selects))
-            ->first();
-
-        $stats = ['semua' => (int) ($row->semua ?? 0)];
-        foreach ($allowed as $key) {
-            $total = (int) ($row->{"{$key}_total"} ?? 0);
-            $filled = (int) ($row->{"{$key}_filled"} ?? 0);
-            $stats[$key] = ['total' => $total, 'filled' => $filled, 'empty' => max($total - $filled, 0)];
+        if ($tindakan === 'belum') {
+            $query->whereNull('radiologi_tindakan');
+        } elseif (isset(InacbgClaim::TINDAKAN_RADIOLOGI[$tindakan])) {
+            $query->whereIn('radiologi_tindakan', [$tindakan, 'rontgen,usg']);
         }
-
-        return $stats;
     }
 
     /**
-     * Display the inacbg data table with upload form.
+     * Tab raber: hanya SEP dengan DPJP lebih dari satu dokter.
+     * Filter status: default (belum diubah) / diubah.
      */
-    public function index(Request $request)
+    protected function applyRaberFilter($query, string $tab, ?string $status): void
     {
-        $canAll = $this->canViewAll();
-        $allowed = $this->visibleSections();
-        $tab = $this->resolveTab($request);
+        if ($tab !== 'raber') {
+            return;
+        }
 
-        // Default to latest discharge_date if no filter provided
+        $query->raber();
+
+        if ($status === 'diubah') {
+            $query->whereNotNull('dpjp_asli');
+        } elseif ($status === 'default') {
+            $query->whereNull('dpjp_asli');
+        }
+    }
+
+    /**
+     * Periode (bulan, tahun). Jika tidak ada filter -> default ke discharge_date terbaru.
+     *
+     * @return array{0: ?int, 1: ?int}
+     */
+    protected function resolvePeriode(Request $request): array
+    {
         $hasFilter = $request->has('bulan') || $request->has('tahun');
         $bulan = $request->integer('bulan') ?: null;
         $tahun = $request->integer('tahun') ?: null;
@@ -148,44 +177,147 @@ class InacbgController extends Controller
             }
         }
 
+        return [$bulan, $tahun];
+    }
+
+    /**
+     * Query terfilter (dipakai index & export): tab, status, periode, pencarian.
+     */
+    protected function filteredQuery(Request $request, string $tab, ?int $bulan, ?int $tahun)
+    {
         $query = InacbgClaim::query();
 
-        // Filter tab seksi (hanya SEP yang punya biaya di seksi tsb)
-        if ($tab !== 'semua') {
+        if ($tab === 'raber') {
+            $this->applyRaberFilter($query, $tab, $request->get('dpjp_status'));
+        } elseif ($tab !== 'semua') {
             $query->forSection($tab);
             $this->applyKeteranganFilter($query, $tab, $request->get('ket'));
+            $this->applyTindakanFilter($query, $tab, $request->get('tindakan'));
         }
 
-        // Filter by status
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        // Filter by month
         if ($bulan) {
             $query->whereMonth('discharge_date', $bulan);
         }
 
-        // Filter by year
         if ($tahun) {
             $query->whereYear('discharge_date', $tahun);
         }
 
-        // Search by SEP, MRN, or Nama
+        // Cari SEP, MRN, Nama, INA-CBG (+ DPJP di tab raber)
         if ($request->filled('search')) {
             $s = $request->search;
-            $query->where(function ($q) use ($s) {
+
+            $query->where(function ($q) use ($s, $tab) {
                 $q->where('sep', 'like', "%{$s}%")
                     ->orWhere('mrn', 'like', "%{$s}%")
                     ->orWhere('nama_pasien', 'like', "%{$s}%")
                     ->orWhere('inacbg', 'like', "%{$s}%");
+
+                if ($tab === 'raber') {
+                    $q->orWhere('dpjp', 'like', "%{$s}%");
+                }
             });
         }
+
+        return $query;
+    }
+
+    /**
+     * Angka per tab (mengikuti filter bulan & tahun):
+     * semua, raber (total / diubah), serta total / terisi / belum untuk tiap seksi.
+     */
+    protected function tabStats(array $allowed, ?int $bulan, ?int $tahun, bool $withRaber = false): array
+    {
+        $selects = ['COUNT(*) AS semua'];
+
+        if ($withRaber) {
+            $selects[] = "SUM(dpjp LIKE '%/%') AS raber_total";
+            $selects[] = "SUM(dpjp LIKE '%/%' AND dpjp_asli IS NOT NULL) AS raber_diubah";
+        }
+
+        foreach ($allowed as $key) {
+            $col = InacbgClaim::SECTIONS[$key]['column'];
+            $hasCost = "({$col} > 0 OR JSON_EXTRACT(keterangan, '$.{$key}.harga_awal') IS NOT NULL)";
+            $selects[] = "SUM({$hasCost}) AS {$key}_total";
+            $selects[] = "SUM({$hasCost} AND JSON_EXTRACT(keterangan, '$.{$key}') IS NOT NULL) AS {$key}_filled";
+        }
+
+        $row = InacbgClaim::query()
+            ->when($bulan, fn($q) => $q->whereMonth('discharge_date', $bulan))
+            ->when($tahun, fn($q) => $q->whereYear('discharge_date', $tahun))
+            ->selectRaw(implode(', ', $selects))
+            ->first();
+
+        $stats = ['semua' => (int) ($row->semua ?? 0)];
+
+        if ($withRaber) {
+            $total = (int) ($row->raber_total ?? 0);
+            $diubah = (int) ($row->raber_diubah ?? 0);
+            $stats['raber'] = ['total' => $total, 'diubah' => $diubah, 'default' => max($total - $diubah, 0)];
+        }
+
+        foreach ($allowed as $key) {
+            $total = (int) ($row->{"{$key}_total"} ?? 0);
+            $filled = (int) ($row->{"{$key}_filled"} ?? 0);
+            $stats[$key] = ['total' => $total, 'filled' => $filled, 'empty' => max($total - $filled, 0)];
+        }
+
+        return $stats;
+    }
+
+    /**
+     * Angka filter tindakan radiologi (mengikuti bulan & tahun).
+     */
+    protected function tindakanStats(?int $bulan, ?int $tahun): array
+    {
+        $r = InacbgClaim::forSection('radiologi')
+            ->when($bulan, fn($q) => $q->whereMonth('discharge_date', $bulan))
+            ->when($tahun, fn($q) => $q->whereYear('discharge_date', $tahun))
+            ->selectRaw("COUNT(*) AS total,
+                         SUM(radiologi_tindakan IN ('rontgen', 'rontgen,usg')) AS rontgen,
+                         SUM(radiologi_tindakan IN ('usg', 'rontgen,usg')) AS usg,
+                         SUM(radiologi_tindakan IS NULL) AS belum")
+            ->first();
+
+        return [
+            'total' => (int) ($r->total ?? 0),
+            'rontgen' => (int) ($r->rontgen ?? 0),
+            'usg' => (int) ($r->usg ?? 0),
+            'belum' => (int) ($r->belum ?? 0),
+        ];
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Halaman
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Display the inacbg data table with upload form.
+     */
+    public function index(Request $request)
+    {
+        $canAll = $this->canViewAll();
+        $canRaber = $this->canRaber();
+        $allowed = $this->visibleSections();
+        $tab = $this->resolveTab($request);
+
+        [$bulan, $tahun] = $this->resolvePeriode($request);
+
+        $query = $this->filteredQuery($request, $tab, $bulan, $tahun);
 
         // Sort
         $sortField = $request->get('sort', 'created_at');
         $sortDir = $request->get('dir', 'desc');
-        $allowedSort = ['created_at', 'admission_date', 'discharge_date', 'status', 'nama_pasien', 'sep', 'total_tarif', 'laboratorium', 'radiologi', 'pelayanan_darah'];
+        $allowedSort = [
+            'created_at', 'admission_date', 'discharge_date', 'status', 'nama_pasien', 'sep',
+            'total_tarif', 'laboratorium', 'radiologi', 'pelayanan_darah', 'dpjp',
+        ];
         if (!in_array($sortField, $allowedSort)) {
             $sortField = 'created_at';
         }
@@ -193,11 +325,13 @@ class InacbgController extends Controller
 
         $claims = $query->orderBy($sortField, $sortDir)->paginate(25)->withQueryString();
 
-        $stats = [
-            'total' => InacbgClaim::count(),
-            'pending' => InacbgClaim::pending()->count(),
-            'disetujui' => InacbgClaim::disetujui()->count(),
-        ];
+        $stats = $tab === 'semua'
+            ? [
+                'total' => InacbgClaim::count(),
+                'pending' => InacbgClaim::pending()->count(),
+                'disetujui' => InacbgClaim::disetujui()->count(),
+            ]
+            : null;
 
         // Available years for filter dropdown
         $availableYears = InacbgClaim::selectRaw('YEAR(discharge_date) as tahun')
@@ -206,7 +340,8 @@ class InacbgController extends Controller
             ->orderByDesc('tahun')
             ->pluck('tahun');
 
-        $tabStats = $this->tabStats($allowed, $bulan, $tahun);
+        $tabStats = $this->tabStats($allowed, $bulan, $tahun, $canRaber);
+        $tindakanStats = $tab === 'radiologi' ? $this->tindakanStats($bulan, $tahun) : null;
         $editable = array_values(array_filter($allowed, fn($k) => $this->canManage($k)));
 
         return view('pages.inacbg.index', compact(
@@ -217,9 +352,11 @@ class InacbgController extends Controller
             'tahun',
             'tab',
             'canAll',
+            'canRaber',
             'allowed',
             'editable',
-            'tabStats'
+            'tabStats',
+            'tindakanStats'
         ));
     }
 
@@ -295,15 +432,17 @@ class InacbgController extends Controller
         $canAll = $this->canViewAll();
         $tab = $this->resolveTab($request);
 
+        // Tab raber tidak punya halaman detail sendiri
+        abort_if($tab === 'raber', 404);
+
         // Tab "semua" -> semua seksi yang boleh dilihat; tab seksi -> hanya seksi itu
         $keys = $tab === 'semua' ? $this->visibleSections() : [$tab];
 
         // Keterangan sesuai tab yang sedang dibuka
         $sections = [];
         foreach ($keys as $key) {
-            $col = InacbgClaim::SECTIONS[$key]['column'];
             $data = $inacbgClaim->keterangan[$key] ?? null;
-            $hasCost = (float) $inacbgClaim->$col > 0;
+            $hasCost = $inacbgClaim->hasSectionCost($key);
 
             // tampilkan seksi yang relevan (ada biayanya) atau sudah terisi
             if ($hasCost || $data) {
@@ -311,6 +450,7 @@ class InacbgController extends Controller
                     'label' => InacbgClaim::SECTIONS[$key]['label'],
                     'data' => $data,
                     'canEdit' => $this->canManage($key) && $hasCost,
+                    'tindakan' => $key === 'radiologi' ? $inacbgClaim->radiologi_tindakan : null,
                 ];
             }
         }
@@ -325,6 +465,12 @@ class InacbgController extends Controller
         return view('pages.inacbg.show', compact('inacbgClaim', 'jasaData', 'sections', 'canAll', 'tab'));
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Aksi
+    |--------------------------------------------------------------------------
+    */
+
     /**
      * Simpan keterangan satu seksi (lab / radiologi / utd).
      */
@@ -333,28 +479,167 @@ class InacbgController extends Controller
         abort_unless($this->canManage($section), 403);
 
         $col = InacbgClaim::SECTIONS[$section]['column'];
-        abort_if((float) $inacbgClaim->$col <= 0, 422, 'Klaim ini tidak memiliki biaya untuk seksi tersebut.');
+        abort_unless($inacbgClaim->hasSectionCost($section), 422, 'Klaim ini tidak memiliki biaya untuk seksi tersebut.');
+
+        // Radiologi: tindakan (Rontgen / USG) wajib dipilih dulu
+        if ($section === 'radiologi' && !$inacbgClaim->radiologi_tindakan) {
+            return back()->with('error', 'Pilih tindakan (Rontgen / USG) terlebih dahulu.');
+        }
+
+        // Form Rupiah menggunakan titik ribuan dan koma desimal. Klien lama
+        // tetap dapat mengirim field harga berupa angka tanpa pemisah ribuan.
+        if ($request->exists('harga_rupiah')) {
+            $rupiah = $request->validate([
+                'harga_rupiah' => ['required', 'string', 'regex:/^\d+(?:\.\d{3})*(?:,\d{1,2})?$/D'],
+            ], [
+                'harga_rupiah.regex' => 'Gunakan format harga seperti 500.000 atau 500.000,50.',
+            ]);
+            $request->merge([
+                'harga' => str_replace(',', '.', str_replace('.', '', $rupiah['harga_rupiah'])),
+            ]);
+        }
 
         $validated = $request->validate([
             'teks' => 'required|string|max:2000',
+            'harga' => 'sometimes|required|numeric|decimal:0,2|min:0|max:9999999999999.99',
         ]);
 
         // Lock baris supaya simpan bersamaan dari seksi lain tidak saling menimpa
-        DB::transaction(function () use ($inacbgClaim, $section, $validated) {
+        DB::transaction(function () use ($inacbgClaim, $section, $col, $validated) {
             $claim = InacbgClaim::lockForUpdate()->findOrFail($inacbgClaim->id);
 
             $ket = $claim->keterangan ?? [];
-            $ket[$section] = [
+            $data = $ket[$section] ?? [];
+            $updates = [];
+            $updatedAt = now()->toDateTimeString();
+
+            if (array_key_exists('harga', $validated)) {
+                $hargaLama = number_format((float) $claim->$col, 2, '.', '');
+                $hargaBaru = number_format((float) $validated['harga'], 2, '.', '');
+
+                if ($hargaLama !== $hargaBaru) {
+                    $data['harga_awal'] ??= $hargaLama;
+                    $data['riwayat_harga'][] = [
+                        'harga_lama' => $hargaLama,
+                        'harga_baru' => $hargaBaru,
+                        'user_id' => auth()->id(),
+                        'user_name' => auth()->user()->name,
+                        'updated_at' => $updatedAt,
+                    ];
+                    $updates[$col] = $hargaBaru;
+                }
+            }
+
+            $ket[$section] = array_merge($data, [
                 'teks' => $validated['teks'],
                 'user_id' => auth()->id(),
                 'user_name' => auth()->user()->name,
-                'updated_at' => now()->toDateTimeString(),
-            ];
+                'updated_at' => $updatedAt,
+            ]);
 
-            $claim->update(['keterangan' => $ket]);
+            $claim->update(array_merge($updates, ['keterangan' => $ket]));
         });
 
-        return back()->with('success', 'Keterangan berhasil disimpan.');
+        return back()->with('success', 'Keterangan dan harga berhasil disimpan.');
+    }
+
+    /**
+     * Pilih / ubah satu atau kedua tindakan radiologi (rontgen / usg).
+     */
+    public function updateTindakan(Request $request, InacbgClaim $inacbgClaim)
+    {
+        abort_unless($this->canManage('radiologi'), 403);
+        abort_unless($inacbgClaim->hasSectionCost('radiologi'), 422, 'Klaim ini tidak memiliki biaya Radiologi.');
+
+        // Tetap menerima satu nilai dari form / klien lama.
+        if (is_string($request->input('tindakan'))) {
+            $request->merge(['tindakan' => [$request->input('tindakan')]]);
+        }
+
+        $validated = $request->validate([
+            'tindakan' => 'required|array|min:1|max:2',
+            'tindakan.*' => 'required|string|distinct|in:' . implode(',', array_keys(InacbgClaim::TINDAKAN_RADIOLOGI)),
+        ]);
+
+        $tindakan = array_intersect(array_keys(InacbgClaim::TINDAKAN_RADIOLOGI), $validated['tindakan']);
+
+        $inacbgClaim->update(['radiologi_tindakan' => implode(',', $tindakan)]);
+
+        return $this->done(
+            $request,
+            'Tindakan radiologi: ' . $inacbgClaim->radiologiTindakanLabel() . '.'
+        );
+    }
+
+    /**
+     * Jadikan salah satu dokter sebagai dokter utama (dipindah ke urutan pertama).
+     */
+    public function updateDpjpUtama(Request $request, InacbgClaim $inacbgClaim)
+    {
+        abort_unless($this->canRaber(), 403);
+
+        $validated = $request->validate([
+            'dokter' => 'required|string|max:255',
+        ]);
+
+        DB::transaction(function () use ($validated, $inacbgClaim) {
+            $claim = InacbgClaim::lockForUpdate()->findOrFail($inacbgClaim->id);
+
+            $docs = InacbgClaim::splitDpjp($claim->dpjp);
+            abort_if(count($docs) < 2, 422, 'Klaim ini bukan rawat bersama.');
+
+            $idx = array_search(trim($validated['dokter']), $docs, true);
+            abort_if($idx === false, 422, 'Dokter tidak ditemukan pada DPJP klaim ini.');
+
+            if ($idx === 0) {
+                return; // sudah jadi dokter utama
+            }
+
+            $utama = $docs[$idx];
+            unset($docs[$idx]);
+            $baru = implode(' / ', [$utama, ...array_values($docs)]);
+
+            $asli = $claim->dpjp_asli ?? $claim->dpjp;
+
+            // Urutan kembali sama dengan aslinya -> anggap default lagi
+            if ($baru === implode(' / ', InacbgClaim::splitDpjp($asli))) {
+                $claim->update([
+                    'dpjp' => $asli,
+                    'dpjp_asli' => null,
+                    'dpjp_diubah_oleh' => null,
+                    'dpjp_diubah_at' => null,
+                ]);
+
+                return;
+            }
+
+            $claim->update([
+                'dpjp' => $baru,
+                'dpjp_asli' => $asli,
+                'dpjp_diubah_oleh' => auth()->user()->name,
+                'dpjp_diubah_at' => now(),
+            ]);
+        });
+
+        return $this->done($request, 'Dokter utama berhasil diubah.');
+    }
+
+    /**
+     * Kembalikan DPJP ke urutan asli (sesuai file import).
+     */
+    public function resetDpjp(Request $request, InacbgClaim $inacbgClaim)
+    {
+        abort_unless($this->canRaber(), 403);
+        abort_if($inacbgClaim->dpjp_asli === null, 422, 'DPJP masih default.');
+
+        $inacbgClaim->update([
+            'dpjp' => $inacbgClaim->dpjp_asli,
+            'dpjp_asli' => null,
+            'dpjp_diubah_oleh' => null,
+            'dpjp_diubah_at' => null,
+        ]);
+
+        return $this->done($request, 'DPJP dikembalikan ke default.');
     }
 
     /**
@@ -378,63 +663,11 @@ class InacbgController extends Controller
     {
         $tab = $this->resolveTab($request);
 
-        // Default ke discharge_date terbaru jika tidak ada filter bulan/tahun
-        $hasFilter = $request->has('bulan') || $request->has('tahun');
+        [$bulan, $tahun] = $this->resolvePeriode($request);
 
-        $bulan = $request->integer('bulan') ?: null;
-        $tahun = $request->integer('tahun') ?: null;
-
-        if (!$hasFilter && !$bulan && !$tahun) {
-            $latest = InacbgClaim::where('status', 'disetujui')
-                ->whereNotNull('discharge_date')
-                ->orderByDesc('discharge_date')
-                ->first();
-
-            if ($latest) {
-                $bulan = (int) Carbon::parse($latest->discharge_date)->format('n');
-                $tahun = (int) Carbon::parse($latest->discharge_date)->format('Y');
-            }
-        }
-
-        $query = InacbgClaim::query();
-
-        // Filter tab seksi
-        if ($tab !== 'semua') {
-            $query->forSection($tab);
-            $this->applyKeteranganFilter($query, $tab, $request->get('ket'));
-        }
-
-        // Filter by status
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
-        // Filter by month
-        if ($bulan) {
-            $query->whereMonth('discharge_date', $bulan);
-        }
-
-        // Filter by year
-        if ($tahun) {
-            $query->whereYear('discharge_date', $tahun);
-        }
-
-        // Search by SEP, MRN, Nama, atau INA-CBG
-        if ($request->filled('search')) {
-            $s = $request->search;
-
-            $query->where(function ($q) use ($s) {
-                $q->where('sep', 'like', "%{$s}%")
-                    ->orWhere('mrn', 'like', "%{$s}%")
-                    ->orWhere('nama_pasien', 'like', "%{$s}%")
-                    ->orWhere('inacbg', 'like', "%{$s}%");
-            });
-        }
-
-        // Sort by DPJP
-        $query->orderBy('dpjp', 'asc');
-
-        $claims = $query->get();
+        $claims = $this->filteredQuery($request, $tab, $bulan, $tahun)
+            ->orderBy('dpjp', 'asc')
+            ->get();
 
         // Generate filename
         if ($bulan && $tahun) {

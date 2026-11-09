@@ -1,0 +1,24 @@
+/* Halaman daftar INA-CBG: tabel dinamis */
+
+/* Efek saat tabel dimuat ulang */
+#inacbg-table {
+    transition: opacity .15s ease;
+}
+
+#inacbg-table.is-loading {
+    opacity: .5;
+    pointer-events: none;
+}
+
+/* Semua baris tampil penuh (jumlahnya sudah dibatasi paginasi), tanpa scroll vertikal.
+   Scroll horizontal tetap ada hanya jika kolom lebih lebar dari layar. */
+#inacbg-table .table-responsive {
+    max-height: none;
+    overflow-x: auto;
+}
+
+/* Kolom tindakan (tombol Rontgen / USG) tidak terpecah baris */
+#inacbg-table .btn-group form,
+#inacbg-table form.btn-group {
+    white-space: nowrap;
+}

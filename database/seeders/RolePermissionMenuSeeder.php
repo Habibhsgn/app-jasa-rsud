@@ -43,16 +43,17 @@ class RolePermissionMenuSeeder extends Seeder
     {
         // code = nama route yang sudah ada di routes/web.php.
         $permissions = [
-            ['code' => 'dashboard',                              'name' => 'Dashboard',                     'module' => null],
+            ['code' => 'dashboard',                              'name' => 'Dashboard',                      'module' => null],
 
-            ['code' => 'karu.jasa',                              'name' => 'Isi Jasa Ruangan 30%',          'module' => 'jasa'],
+            ['code' => 'karu.jasa',                              'name' => 'Isi Jasa Ruangan 30%',           'module' => 'jasa'],
             ['code' => 'jasa.index',                             'name' => 'Master Input Jasa',              'module' => 'jasa'],
             ['code' => 'index.scoring.index',                    'name' => 'Index Scoring',                  'module' => 'jasa'],
             ['code' => 'management.index.scoring.index',         'name' => 'Verifikasi Jasa (Review Index)', 'module' => 'jasa'],
 
             ['code' => 'inacbg.index',                           'name' => 'INA-CBG',                        'module' => 'inacbg'],
-            ['code' => 'inacbg.export',                          'name' => 'Export INA-CBG',               'module' => 'inacbg'],
+            ['code' => 'inacbg.export',                          'name' => 'Export INA-CBG',                 'module' => 'inacbg'],
             ['code' => 'inacbg.keterangan.all',                  'name' => 'Lihat Semua Keterangan INA-CBG', 'module' => 'inacbg'],
+            ['code' => 'inacbg.raber',                           'name' => 'INA-CBG: Raber (Dokter Utama)',  'module' => 'inacbg'],
             ['code' => 'inacbg.keterangan.lab',                  'name' => 'Keterangan INA-CBG: Lab',        'module' => 'inacbg'],
             ['code' => 'inacbg.keterangan.radiologi',            'name' => 'Keterangan INA-CBG: Radiologi',  'module' => 'inacbg'],
             ['code' => 'inacbg.keterangan.utd',                  'name' => 'Keterangan INA-CBG: UTD',        'module' => 'inacbg'],
@@ -68,7 +69,7 @@ class RolePermissionMenuSeeder extends Seeder
 
             ['code' => 'setting.index',                          'name' => 'Pengaturan Jasa',                'module' => 'setting'],
             ['code' => 'rbac.manage',                            'name' => 'Kelola Role & Akses',            'module' => 'setting'],
-            ['code' => 'topleader.index',                        'name' => 'Top Leader (Perhitungan)',     'module' => 'top-leader'],
+            ['code' => 'topleader.index',                        'name' => 'Top Leader (Perhitungan)',       'module' => 'top-leader'],
             ['code' => 'topleader.manage',                       'name' => 'Manajemen Top Leader',           'module' => 'top-leader'],
             ['code' => 'pelayanan.index',                        'name' => 'Pelayanan (Perhitungan)',        'module' => 'pelayanan'],
         ];

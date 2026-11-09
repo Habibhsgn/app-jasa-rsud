@@ -15,6 +15,9 @@ class InacbgClaim extends Model
         // Informasi Pasien
         'mrn', 'sep', 'nama_pasien', 'dpjp', 'payor_id',
 
+        // Raber (dokter utama)
+        'dpjp_asli', 'dpjp_diubah_oleh', 'dpjp_diubah_at',
+
         // Demografi
         'birth_date', 'umur_tahun', 'umur_hari', 'sex', 'discharge_status',
 
@@ -55,6 +58,9 @@ class InacbgClaim extends Model
 
         // Keterangan per seksi (JSON)
         'keterangan',
+
+        // Tindakan radiologi, dipisahkan koma jika lebih dari satu
+        'radiologi_tindakan',
     ];
 
     /**
@@ -67,6 +73,30 @@ class InacbgClaim extends Model
         'utd'       => ['label' => 'UTD',          'short' => 'UTD', 'column' => 'pelayanan_darah', 'color' => 'danger', 'icon' => 'droplet'],
     ];
 
+    /**
+     * Pilihan tindakan radiologi (wajib dipilih sebelum mengisi keterangan).
+     */
+    public const TINDAKAN_RADIOLOGI = [
+        'rontgen' => 'Rontgen',
+        'usg'     => 'USG',
+    ];
+
+    public function radiologiTindakanList(): array
+    {
+        return array_values(array_intersect(
+            array_keys(self::TINDAKAN_RADIOLOGI),
+            explode(',', (string) $this->radiologi_tindakan)
+        ));
+    }
+
+    public function radiologiTindakanLabel(): string
+    {
+        return implode(' + ', array_map(
+            fn($tindakan) => self::TINDAKAN_RADIOLOGI[$tindakan],
+            $this->radiologiTindakanList()
+        ));
+    }
+
     protected function casts(): array
     {
         return [
@@ -74,6 +104,7 @@ class InacbgClaim extends Model
             'admission_date' => 'date',
             'discharge_date' => 'date',
             'tgl_verifikasi' => 'date',
+            'dpjp_diubah_at' => 'datetime',
             'tarif_inacbg' => 'decimal:2',
             'tarif_subacute' => 'decimal:2',
             'tarif_chronic' => 'decimal:2',
@@ -86,6 +117,9 @@ class InacbgClaim extends Model
             'biaya_riil_rs' => 'decimal:2',
             'biaya_diajukan' => 'decimal:2',
             'biaya_disetujui' => 'decimal:2',
+            'laboratorium' => 'decimal:2',
+            'radiologi' => 'decimal:2',
+            'pelayanan_darah' => 'decimal:2',
             'keterangan' => 'array',
         ];
     }
@@ -95,15 +129,43 @@ class InacbgClaim extends Model
         return $query->where('status', 'pending');
     }
 
+    public function scopeDisetujui($query)
+    {
+        return $query->where('status', 'disetujui');
+    }
+
     public function scopeForSection($query, string $section)
     {
         $col = self::SECTIONS[$section]['column'] ?? null;
 
-        return $col ? $query->where($col, '>', 0) : $query;
+        return $col ? $query->where(function ($q) use ($col, $section) {
+            $q->where($col, '>', 0)->orWhereNotNull("keterangan->{$section}->harga_awal");
+        }) : $query;
     }
 
-    public function scopeDisetujui($query)
+    public function hasSectionCost(string $section): bool
     {
-        return $query->where('status', 'disetujui');
+        $col = self::SECTIONS[$section]['column'];
+
+        return (float) $this->$col > 0 || isset($this->keterangan[$section]['harga_awal']);
+    }
+
+    /**
+     * Rawat bersama: kolom DPJP berisi lebih dari satu dokter (dipisah "/").
+     */
+    public function scopeRaber($query)
+    {
+        return $query->where('dpjp', 'like', '%/%');
+    }
+
+    /**
+     * Pecah kolom DPJP menjadi daftar dokter. Dokter pertama = dokter utama.
+     */
+    public static function splitDpjp(?string $dpjp): array
+    {
+        return array_values(array_filter(
+            array_map('trim', explode('/', (string) $dpjp)),
+            fn($d) => $d !== ''
+        ));
     }
 }

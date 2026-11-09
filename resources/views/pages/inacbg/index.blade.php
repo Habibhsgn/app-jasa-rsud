@@ -2,26 +2,35 @@
 
 @section('title', 'Data INA-CBG')
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/inacbg-index.css') }}">
+@endpush
+
 @section('content')
     @php
         $sectionList = \App\Models\InacbgClaim::SECTIONS;
         $isAll = $tab === 'semua';
-        $cfg = $isAll ? null : $sectionList[$tab];
-        $st = $isAll ? null : ($tabStats[$tab] ?? ['total' => 0, 'filled' => 0, 'empty' => 0]);
+        $isRaber = $tab === 'raber';
+        $isSection = !$isAll && !$isRaber;
+        $cfg = $isSection ? $sectionList[$tab] : null;
+        $st = $isSection ? $tabStats[$tab] ?? ['total' => 0, 'filled' => 0, 'empty' => 0] : null;
         $pct = $st && $st['total'] ? round(($st['filled'] / $st['total']) * 100) : 0;
-        $canEditTab = !$isAll && in_array($tab, $editable, true);
-        $tabQuery = request()->except(['page', 'ket', 'sort', 'dir']);
-        $sortUrl = fn($f) => route('inacbg.index', array_merge(request()->query(), [
-            'tab' => $tab,
-            'sort' => $f,
-            'dir' => request('sort') == $f && request('dir') == 'asc' ? 'desc' : 'asc',
-        ]));
+        $canEditTab = $isSection && in_array($tab, $editable, true);
+        $tabQuery = request()->except(['page', 'ket', 'sort', 'dir', 'tindakan', 'dpjp_status']);
+        $sortUrl = fn($f) => route(
+            'inacbg.index',
+            array_merge(request()->query(), [
+                'tab' => $tab,
+                'sort' => $f,
+                'dir' => request('sort') == $f && request('dir') == 'asc' ? 'desc' : 'asc',
+            ]),
+        );
         $sortMark = fn($f) => request('sort') == $f ? (request('dir') == 'asc' ? ' ▲' : ' ▼') : '';
     @endphp
 
     <h1 class="h3 mb-3"><strong>Data INA-CBG</strong></h1>
 
-    {{-- Flash messages --}}
+    {{-- Flash messages (hasil form biasa / import) --}}
     @if (session('warning'))
         <div class="alert alert-warning">{{ session('warning') }}</div>
     @endif
@@ -32,34 +41,47 @@
         <div class="alert alert-success">{{ session('success') }}</div>
     @endif
 
-    {{-- [ Tab seksi ] --}}
-    <ul class="nav nav-tabs mb-4 flex-nowrap overflow-auto">
-        @if ($canAll)
-            <li class="nav-item">
-                <a class="nav-link text-nowrap {{ $isAll ? 'active' : '' }}"
-                    href="{{ route('inacbg.index', array_merge($tabQuery, ['tab' => 'semua'])) }}">
-                    <i data-feather="list" class="me-1"></i>Semua
-                    <span class="badge rounded-pill text-bg-secondary ms-1">{{ number_format($tabStats['semua'] ?? 0) }}</span>
-                </a>
-            </li>
-        @endif
-        @foreach ($sectionList as $key => $sec)
-            @if (in_array($key, $allowed, true))
+    {{-- [ Tab seksi ] — dimuat ulang diam-diam setelah aksi --}}
+    <div id="inacbg-tabs">
+        <ul class="nav nav-tabs mb-4 flex-nowrap overflow-auto">
+            @if ($canAll)
                 <li class="nav-item">
-                    <a class="nav-link text-nowrap {{ $tab === $key ? 'active' : '' }}"
-                        href="{{ route('inacbg.index', array_merge($tabQuery, ['tab' => $key])) }}">
-                        <i data-feather="{{ $sec['icon'] }}" class="me-1 text-{{ $sec['color'] }}"></i>{{ $sec['label'] }}
-                        <span class="badge rounded-pill text-bg-{{ $sec['color'] }} ms-1" title="Terisi / total SEP">
-                            {{ number_format($tabStats[$key]['filled'] ?? 0) }}/{{ number_format($tabStats[$key]['total'] ?? 0) }}
+                    <a class="nav-link text-nowrap {{ $isAll ? 'active' : '' }}"
+                        href="{{ route('inacbg.index', array_merge($tabQuery, ['tab' => 'semua'])) }}">
+                        <i data-feather="list" class="me-1"></i>Semua
+                        <span class="badge rounded-pill text-bg-secondary ms-1">{{ number_format($tabStats['semua'] ?? 0) }}</span>
+                    </a>
+                </li>
+            @endif
+            @if ($canRaber)
+                <li class="nav-item">
+                    <a class="nav-link text-nowrap {{ $isRaber ? 'active' : '' }}"
+                        href="{{ route('inacbg.index', array_merge($tabQuery, ['tab' => 'raber'])) }}">
+                        <i data-feather="users" class="me-1 text-info"></i>Raber
+                        <span class="badge rounded-pill text-bg-info ms-1" title="Diubah / total raber">
+                            {{ number_format($tabStats['raber']['diubah'] ?? 0) }}/{{ number_format($tabStats['raber']['total'] ?? 0) }}
                         </span>
                     </a>
                 </li>
             @endif
-        @endforeach
-    </ul>
+            @foreach ($sectionList as $key => $sec)
+                @if (in_array($key, $allowed, true))
+                    <li class="nav-item">
+                        <a class="nav-link text-nowrap {{ $tab === $key ? 'active' : '' }}"
+                            href="{{ route('inacbg.index', array_merge($tabQuery, ['tab' => $key])) }}">
+                            <i data-feather="{{ $sec['icon'] }}" class="me-1 text-{{ $sec['color'] }}"></i>{{ $sec['label'] }}
+                            <span class="badge rounded-pill text-bg-{{ $sec['color'] }} ms-1" title="Terisi / total SEP">
+                                {{ number_format($tabStats[$key]['filled'] ?? 0) }}/{{ number_format($tabStats[$key]['total'] ?? 0) }}
+                            </span>
+                        </a>
+                    </li>
+                @endif
+            @endforeach
+        </ul>
+    </div>
 
+    {{-- [ Tab Semua: stat cards, import — tidak ikut dimuat ulang ] --}}
     @if ($isAll)
-        {{-- [ Stat Cards ] --}}
         <div class="row mb-4">
             <div class="col-md-4">
                 <div class="card">
@@ -87,15 +109,13 @@
             </div>
         </div>
 
-        {{-- [ Upload Form ] --}}
         @if ($canAll)
             <div class="card mb-4">
                 <div class="card-header bg-light">
                     <h5 class="card-title mb-0">Import Data INA-CBG</h5>
                 </div>
                 <div class="card-body">
-                    <form action="{{ route('inacbg.import') }}" method="POST" enctype="multipart/form-data"
-                        id="formImport">
+                    <form action="{{ route('inacbg.import') }}" method="POST" enctype="multipart/form-data" id="formImport">
                         @csrf
                         <div class="row g-3 align-items-start">
                             <div class="col-md-5">
@@ -135,8 +155,8 @@
         @endif
 
         {{-- [ Loading Modal ] --}}
-        <div class="modal fade" id="importLoadingModal" tabindex="-1" data-bs-backdrop="static"
-            data-bs-keyboard="false" aria-hidden="true">
+        <div class="modal fade" id="importLoadingModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false"
+            aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
                     <div class="modal-body text-center py-5">
@@ -150,58 +170,19 @@
                 </div>
             </div>
         </div>
-    @else
-        {{-- [ Panel progres seksi ] --}}
-        <div class="card mb-4 border-start border-4 border-{{ $cfg['color'] }}">
-            <div class="card-body">
-                <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                    <div class="flex-grow-1" style="min-width: 260px;">
-                        <div class="d-flex justify-content-between align-items-baseline mb-2">
-                            <span class="fw-semibold">Keterangan {{ $cfg['label'] }}</span>
-                            <span class="text-muted small">
-                                {{ number_format($st['filled']) }} dari {{ number_format($st['total']) }} SEP terisi ({{ $pct }}%)
-                            </span>
-                        </div>
-                        <div class="progress" style="height: 8px;" role="progressbar" aria-valuenow="{{ $pct }}"
-                            aria-valuemin="0" aria-valuemax="100"
-                            aria-label="Kemajuan pengisian keterangan {{ $cfg['label'] }}">
-                            <div class="progress-bar bg-{{ $cfg['color'] }}" style="width: {{ $pct }}%"></div>
-                        </div>
-                        <div class="text-muted small mt-2">Angka mengikuti filter bulan dan tahun.</div>
-                    </div>
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Filter keterangan">
-                        <a href="{{ route('inacbg.index', array_merge(request()->except(['page', 'ket']), ['tab' => $tab])) }}"
-                            class="btn {{ !request('ket') ? 'btn-' . $cfg['color'] : 'btn-outline-' . $cfg['color'] }}">
-                            Semua ({{ number_format($st['total']) }})
-                        </a>
-                        <a href="{{ route('inacbg.index', array_merge(request()->except('page'), ['tab' => $tab, 'ket' => 'belum'])) }}"
-                            class="btn {{ request('ket') === 'belum' ? 'btn-' . $cfg['color'] : 'btn-outline-' . $cfg['color'] }}">
-                            Belum diisi ({{ number_format($st['empty']) }})
-                        </a>
-                        <a href="{{ route('inacbg.index', array_merge(request()->except('page'), ['tab' => $tab, 'ket' => 'sudah'])) }}"
-                            class="btn {{ request('ket') === 'sudah' ? 'btn-' . $cfg['color'] : 'btn-outline-' . $cfg['color'] }}">
-                            Sudah diisi ({{ number_format($st['filled']) }})
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
     @endif
 
-    {{-- [ Filter & Search ] --}}
-    <div class="card mb-4">
+    {{-- [ Filter & Search ] — diterapkan langsung (tanpa reload), cari memakai debounce --}}
+    <div class="card mb-4" id="inacbg-filter">
         <div class="card-header bg-white">
-            <h6 class="mb-0 text-muted">Filter Periode</h6>
+            <h6 class="mb-0 text-muted">Filter</h6>
         </div>
         <div class="card-body">
             <form method="GET" action="{{ route('inacbg.index') }}" class="row g-3 align-items-end">
                 <input type="hidden" name="tab" value="{{ $tab }}">
-                @if (!$isAll && request()->filled('ket'))
-                    <input type="hidden" name="ket" value="{{ request('ket') }}">
-                @endif
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label">Bulan</label>
-                    <select name="bulan" class="form-select" onchange="this.form.submit()">
+                    <select name="bulan" class="form-select">
                         <option value="">Semua Bulan</option>
                         @for ($i = 1; $i <= 12; $i++)
                             <option value="{{ $i }}" {{ $bulan == $i ? 'selected' : '' }}>
@@ -212,7 +193,7 @@
                 </div>
                 <div class="col-md-2">
                     <label class="form-label">Tahun</label>
-                    <select name="tahun" class="form-select" onchange="this.form.submit()">
+                    <select name="tahun" class="form-select">
                         <option value="">Semua Tahun</option>
                         @foreach ($availableYears as $y)
                             <option value="{{ $y }}" {{ $tahun == $y ? 'selected' : '' }}>{{ $y }}</option>
@@ -220,28 +201,62 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <label class="form-label fw-bold">Filter Status</label>
-                    <select name="status" class="form-select" onchange="this.form.submit()">
+                    <label class="form-label fw-bold">Status</label>
+                    <select name="status" class="form-select">
                         <option value="">Semua Status</option>
                         <option value="pending" {{ request('status') == 'pending' ? 'selected' : '' }}>Pending</option>
                         <option value="disetujui" {{ request('status') == 'disetujui' ? 'selected' : '' }}>Disetujui</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                {{-- Filter khusus seksi (dulu tombol di panel progres) --}}
+                @if ($isRaber)
+                    @php $rs = $tabStats['raber'] ?? ['total' => 0, 'diubah' => 0, 'default' => 0]; @endphp
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Dokter Utama</label>
+                        <select name="dpjp_status" class="form-select">
+                            <option value="" {{ request('dpjp_status') == '' ? 'selected' : '' }}>Semua ({{ number_format($rs['total']) }})</option>
+                            <option value="default" {{ request('dpjp_status') === 'default' ? 'selected' : '' }}>Default ({{ number_format($rs['default']) }})</option>
+                            <option value="diubah" {{ request('dpjp_status') === 'diubah' ? 'selected' : '' }}>Diubah ({{ number_format($rs['diubah']) }})</option>
+                        </select>
+                    </div>
+                @elseif ($isSection)
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Keterangan</label>
+                        <select name="ket" class="form-select">
+                            <option value="" {{ request('ket') == '' ? 'selected' : '' }}>Semua ({{ number_format($st['total']) }})</option>
+                            <option value="belum" {{ request('ket') === 'belum' ? 'selected' : '' }}>Belum diisi ({{ number_format($st['empty']) }})</option>
+                            <option value="sudah" {{ request('ket') === 'sudah' ? 'selected' : '' }}>Sudah diisi ({{ number_format($st['filled']) }})</option>
+                        </select>
+                    </div>
+                    @if ($tab === 'radiologi' && $tindakanStats)
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Tindakan</label>
+                            <select name="tindakan" class="form-select">
+                                <option value="" {{ request('tindakan') == '' ? 'selected' : '' }}>Semua ({{ number_format($tindakanStats['total']) }})</option>
+                                <option value="rontgen" {{ request('tindakan') === 'rontgen' ? 'selected' : '' }}>Rontgen ({{ number_format($tindakanStats['rontgen']) }})</option>
+                                <option value="usg" {{ request('tindakan') === 'usg' ? 'selected' : '' }}>USG ({{ number_format($tindakanStats['usg']) }})</option>
+                                <option value="belum" {{ request('tindakan') === 'belum' ? 'selected' : '' }}>Belum dipilih ({{ number_format($tindakanStats['belum']) }})</option>
+                            </select>
+                        </div>
+                    @endif
+                @endif
+                <div class="col-md" style="min-width: 260px;">
                     <label class="form-label fw-bold">Cari</label>
                     <div class="input-group">
-                        <input type="text" name="search" class="form-control"
-                            placeholder="Cari SEP, MRN, Nama, INA-CBG..." value="{{ request('search') }}">
+                        <input type="text" name="search" class="form-control" autocomplete="off"
+                            placeholder="{{ $isRaber ? 'Cari SEP, MRN, Nama, Dokter...' : 'Cari SEP, MRN, Nama, INA-CBG...' }}"
+                            value="{{ request('search') }}">
                         <button class="btn btn-outline-secondary" type="submit">Cari</button>
                         <a href="{{ route('inacbg.index', ['tab' => $tab]) }}" class="btn btn-outline-secondary">
                             <i class="bi bi-arrow-clockwise me-1"></i> Reset
                         </a>
                     </div>
                 </div>
-                <div class="col-md-1">
+                <div class="col-md-auto">
                     <label class="form-label invisible d-none d-md-block">&nbsp;</label>
-                    <a href="{{ route('inacbg.export', array_merge(request()->query(), ['tab' => $tab])) }}"
-                        class="btn btn-success w-100">
+                    <a id="btnExport" data-base="{{ route('inacbg.export') }}" data-tab="{{ $tab }}"
+                        href="{{ route('inacbg.export', array_merge(request()->query(), ['tab' => $tab])) }}"
+                        class="btn btn-success">
                         <i class="bi bi-download me-1"></i> Export
                     </a>
                 </div>
@@ -249,11 +264,14 @@
         </div>
     </div>
 
-    {{-- [ Tabel data ] --}}
-    @include('pages.inacbg.partials.index-table')
+    {{-- [ Tabel data ] — dimuat ulang diam-diam setelah aksi, cari, sort, paginasi --}}
+    <div id="inacbg-table">
+        @include('pages.inacbg.partials.index-table')
+    </div>
 @endsection
 
 @push('scripts')
+    <script src="{{ asset('assets/js/inacbg-ajax.js') }}"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             var formImport = document.getElementById('formImport');

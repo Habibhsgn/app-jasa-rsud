@@ -285,6 +285,9 @@ Route::middleware(['auth', 'active', 'verified'])->group(function () {
         Route::put('/{inacbgClaim}/keterangan/{section}', [InacbgController::class, 'updateKeterangan'])->name('update-keterangan');
         Route::get('/{inacbgClaim}', [InacbgController::class, 'show'])->name('show');
         Route::put('/{inacbgClaim}/status', [InacbgController::class, 'updateStatus'])->name('update-status');
+        Route::put('/{inacbgClaim}/tindakan', [InacbgController::class, 'updateTindakan'])->name('update-tindakan');
+        Route::put('/{inacbgClaim}/dpjp-utama', [InacbgController::class, 'updateDpjpUtama'])->name('update-dpjp-utama');
+        Route::put('/{inacbgClaim}/dpjp-reset', [InacbgController::class, 'resetDpjp'])->name('reset-dpjp');
     });
 
     /*
